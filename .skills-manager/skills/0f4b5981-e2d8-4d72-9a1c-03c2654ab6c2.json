@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "0f4b5981-e2d8-4d72-9a1c-03c2654ab6c2",
+  "path": "machine-learning-zhouzhihua",
+  "path_key": "machine-learning-zhouzhihua",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "local",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}
