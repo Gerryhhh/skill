@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "94af0015-1964-4362-befa-769c980ee360",
+  "path": "bank-statement-cashflow",
+  "path_key": "bank-statement-cashflow",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "local",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

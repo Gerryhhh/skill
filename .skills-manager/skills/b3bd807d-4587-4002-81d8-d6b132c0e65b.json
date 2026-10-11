@@ -4,7 +4,9 @@
   "path": "book-to-skill-2",
   "path_key": "book-to-skill-2",
   "enabled": true,
-  "tags": [],
+  "tags": [
+    "蒸馏"
+  ],
   "source": {
     "type": "local",
     "ref": null,
