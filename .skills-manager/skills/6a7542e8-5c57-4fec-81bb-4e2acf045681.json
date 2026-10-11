@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "skill_id": "6a7542e8-5c57-4fec-81bb-4e2acf045681",
+  "path": "codex-ppt",
+  "path_key": "codex-ppt",
+  "enabled": true,
+  "tags": [
+    "PPT"
+  ],
+  "source": {
+    "type": "local",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

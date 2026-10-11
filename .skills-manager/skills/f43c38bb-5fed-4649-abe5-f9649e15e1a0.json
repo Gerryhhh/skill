@@ -4,7 +4,9 @@
   "path": "digital-transformation-mba",
   "path_key": "digital-transformation-mba",
   "enabled": true,
-  "tags": [],
+  "tags": [
+    "数字化转型及商业分析"
+  ],
   "source": {
     "type": "local",
     "ref": null,

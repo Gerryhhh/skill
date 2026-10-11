@@ -4,7 +4,9 @@
   "path": "chuangye-jinrong-kecheng-ppt",
   "path_key": "chuangye-jinrong-kecheng-ppt",
   "enabled": true,
-  "tags": [],
+  "tags": [
+    "创业金融"
+  ],
   "source": {
     "type": "local",
     "ref": null,

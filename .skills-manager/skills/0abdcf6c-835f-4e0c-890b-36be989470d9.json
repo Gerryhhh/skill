@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "skill_id": "0abdcf6c-835f-4e0c-890b-36be989470d9",
+  "path": "cyber-ppt",
+  "path_key": "cyber-ppt",
+  "enabled": true,
+  "tags": [
+    "PPT"
+  ],
+  "source": {
+    "type": "local",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

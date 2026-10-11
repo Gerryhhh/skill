@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "scenario_id": "bd417969-be17-4504-9db4-a11ab205d607",
+  "skill_id": "0abdcf6c-835f-4e0c-890b-36be989470d9",
+  "sort_order": 1,
+  "tools": {
+    "claude_code": true,
+    "codex": true,
+    "mimo": true,
+    "qoder": true,
+    "workbuddy": true
+  }
+}
