@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "scenario_id": "b7ed7494-4ff1-4132-a059-1a9a8e783b0e",
-  "name": "Default",
+  "name": "交大理大MBA",
   "description": "Default startup scenario",
-  "icon": null,
+  "icon": "book-open",
   "sort_order": 0
 }
