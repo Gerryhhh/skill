@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "8ecc08da-adf9-4af1-9724-4557cd18fa3d",
+  "path": "chuangye-jinrong-kecheng",
+  "path_key": "chuangye-jinrong-kecheng",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "local",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

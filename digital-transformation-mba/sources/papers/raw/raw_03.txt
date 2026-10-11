@@ -1,0 +1,3618 @@
+
+===== PAGE 1 =====
+A hybrid machine learning framework for analyzing
+human decision making through learning preferences
+Mengzhuo Guoa,b, Qingpeng Zhangb,∗, Xiuwu Liaoa, Frank Youhua Chenc,
+Daniel Dajun Zengd,e
+aSchool of Management, Xi’an Jiaotong University
+bSchool of Data Science, City University of Hong Kong
+cDepartment of Management Science, City University of Hong Kong
+dThe State Key Laboratory of Management and Control for Complex Systems, Institute of
+Automation, Chinese Academy of Sciences
+eDepartment of Management Information Systems, University of Arizona
+Abstract
+Machine learning has recently been widely adopted to address the managerial
+decision making problems, in which the decision maker needs to be able to in-
+terpret the contributions of individual attributes in an explicit form. However,
+there is a trade-oﬀbetween performance and interpretability.
+Full complex-
+ity models (such as neural network-based models) are non-traceable black-box,
+whereas classic interpretable models (such as logistic regression) are usually
+simpliﬁed with lower accuracy. This trade-oﬀlimits the application of state-of-
+the-art machine learning models in management problems, which requires high
+prediction performance, as well as the understanding of individual attributes’
+contributions to the model outcome. Multiple criteria decision aiding (MCDA)
+is a family of analytic approaches to depicting the rationale of human decision.
+It is also limited by strong assumptions (e.g. preference independence). To meet
+the decision maker’s demand for more interpretable machine learning models,
+we propose a novel hybrid method, namely Neural Network-based Multiple
+Criteria Decision Aiding (NN-MCDA), which combines an additive value model
+and a fully-connected multilayer perceptron (MLP) to achieve good performance
+while capturing the explicit relationships between individual attributes and the
+prediction. NN-MCDA has a linear component (in an additive form of a set
+of polynomial functions) to characterize such relationships through providing
+explicit marginal value functions, and a nonlinear component (in a standard
+MLP form) to capture the implicit high-order interactions between attributes
+and their complex nonlinear transformations. We demonstrate the eﬀectiveness
+of NN-MCDA with extensive simulation studies and three real-world datasets.
+∗Corresponding author
+Email addresses: mengzhguo2-c@my.cityu.edu.hk (Mengzhuo Guo),
+qingpeng.zhang@cityu.edu.hk (Qingpeng Zhang), liaoxiuwu@mail.xjtu.edu.cn (Xiuwu
+Liao), youhchen@cityu.edu.hk (Frank Youhua Chen), dajun.zeng@ia.ac.cn (Daniel Dajun
+Zeng)
+Preprint submitted to Omega
+October 28, 2019
+arXiv:1906.01233v3  [cs.LG]  25 Oct 2019
+
+===== PAGE 2 =====
+To the best of our knowledge, this research is the ﬁrst to enhance the inter-
+pretability of machine learning models with MCDA techniques. The proposed
+framework also sheds light on how to use machine learning techniques to free
+MCDA from strong assumptions.
+Keywords:
+Decision analysis, Business analytics, Predictive modeling, Big
+data analytics, Machine learning, Multiple criteria decision analysis
+1. Introduction
+Machine learning has recently been widely adopted to address challenging
+decision making problems in a variety of managerial contexts such as market-
+ing (Cui and Curry, 2005), credit-risk evaluation (Baesens et al., 2003) and
+healthcare management (Gartner et al., 2015). Many machine learning models,
+such as support vector machines (SVMs) (Cortes and Vapnik, 1995), boosted
+trees (Friedman, 2001) and neural network-based deep learning methods (LeCun
+et al., 2015), are capable of handling high-dimensional data because of the high
+complexity of the model. However, it comes at the expense of interpretability
+(Lou et al., 2012).
+The application of machine learning in management research could beneﬁt
+from the interpretability of models. In practice, the decision maker (DM) needs
+to be able to characterize the contributions of attributes in an explicit form.
+Such interpretability can make the model trustworthy to the DM (Ribeiro et al.,
+2016), help DM understand the causality (Miller, 2018), and improve the model
+through incorporating DM’s domain knowledge (Aggarwal and Fallah Tehrani,
+2019).
+Therefore, technology giants like Google, IBM, and Microsoft, have
+been investigating on the techniques in enhancing the model interpretability
+recently. As stated in a comprehensive overview conducted by David Gunning,
+the program manager in the Information Innovation Oﬃce (I2O) of the Defense
+Advanced Research Projects Agency (DARPA), “machine learning models are
+opaque, non-intuitive and diﬃcult for people to understand” (Gunning, 2017).
+DARPA has since funded for developing interpretable machine learning tech-
+niques among academics.
+In the latest budget plan of DARPA, explainable
+artiﬁcial intelligence (XAI) has been listed as the key funding area in the ﬁscal
+year 2019-2020, with the total amount of 26.05 million US dollars 1.
+1.1. The need for interpretable models in management problems.
+In many management problems, the ability in understanding the contribu-
+tions of individual attributes to the prediction outcome is heavily needed (Guo
+et al., 2019; Barbati et al., 2018). An explicit form of such contributions, for
+instance giving a value function that describes the detailed relationship between
+each attribute and outcome, can help the DM exploit and correct the obtained
+1https://www.darpa.mil/about-us/budget
+2
+
+===== PAGE 3 =====
+patterns and rules with prior knowledge, facilitate the downstream manage-
+rial decision making, and incorporate critical domain knowledge (Miller, 2018;
+Ribeiro et al., 2016; Doumpos and Zopounidis, 2011; Lou et al., 2012). The re-
+sulted interpretable model can provide in-depth understanding of the data and
+patterns (Aggarwal and Fallah Tehrani, 2019). In practice, model interpretabil-
+ity is as important as (if not more important than) accuracy in many managerial
+decision making tasks such as clinical diagnoses, in which the understanding of
+how the model makes the prediction is the key to facilitate physicians to trust
+the model and utilize the prediction results (Caruana et al., 2015). For example,
+the risk of depression is usually assumed to be positively correlated with the age
+(Blazer et al., 1991). However, the strength of the correlation could vary over
+the course of aging (Li et al., 2014). A simple regression analysis assumes that
+such correlation is consistent, which sometimes simplify the real scenarios. If
+we can provide the physicians with a value function that characterizes the age’s
+contribution on the risk with a more explicit and concrete form, the predictions
+seem to be more convincing. In this study, by interpretability we mean that
+the model capacity to provide such explicit value functions characterizing the
+contributions of each individual attributes (Lou et al., 2012).
+1.2. Multiple criteria decision aiding
+Multiple criteria decision aiding (MCDA) has been a fast growing area of
+operational research during the last several decades (Dyer et al., 1992; Stewart,
+1992; Wallenius et al., 2008; Ciomek et al., 2018). It involves a ﬁnite set of alter-
+natives (e.g. actions, items, policies) that are evaluated from a set of conﬂicting
+multiple criteria or attributes2. The DM’s decision is driven by his/her under-
+lying global value (utility) function (Keeney, 1976). This global value measures
+the DM’s desirability for an alternative and can be disaggregated into a set of
+per-attribute marginal value functions that represent the DM’s evaluation of
+the corresponding attribute. These marginal value functions can be learned by
+the DM’s judgments on learning examples (e.g. pairwise comparison between
+two alternatives). Once the marginal value functions are deciphered, we can
+understand the decision making rationale, based on which we can predict the
+judgment of the DM. This process is referred as the preference disaggregation
+approaches of MCDA.
+Many machine learning framework can help MCDA accomplish the learning
+objectives because both of them aim to learn a decision model from data. Thus,
+MCDA and machine learning naturally have reciprocal interactions (Doumpos
+and Zopounidis, 2011).
+MCDA and machine learning are integrated in two
+directions. First, we can apply machine learning techniques to various tasks in
+a decision aiding context, such as learning to rank, multi-label classiﬁcation, etc.
+The opposite direction is to implement MCDA concepts in a machine learning
+framework. Utilizing MCDA approaches to adapt the machine learning models
+2In machine learning, criteria refer to attributes or features with preference order scales
+(Corrente et al., 2013). For consistency, we use “attribute” in this paper.
+3
+
+===== PAGE 4 =====
+to various topics (such as feature selection and extraction, pruning decision
+rules and multiple objective optimization) has become a trend recently. Our
+work belongs to the second stream. We aim to construct a hybrid model, which
+utilizes value function-based preference disaggregation approaches of MCDA to
+enhance the interpretability of “black-box” machine learning models.
+The motivation of introducing the value function-based preference disaggre-
+gation approaches of MCDA to machine learning stems from its powerful capac-
+ity in depicting the human decision-making process. The deciphered marginal
+value functions reveal the rationale of DM’s judgment, and thus provide con-
+vincing evidence to assist comprehending the decision making (Aggarwal and
+Fallah Tehrani, 2019; Lou et al., 2012). Our task of learning an interpretable
+model is essentially to capture the characteristics of the marginal value func-
+tions, based on which we obtain a certain degree of interpretability.
+1.3. An overview of this paper.
+This paper proposes a framework for a Neural Network-based Multiple
+Criteria Decision Aiding (NN-MCDA) approach. NN-MCDA combines an ad-
+ditive model and a fully-connected multilayer perceptron (MLP) to achieve good
+performance while capturing the explicit relationships between individual at-
+tributes and the prediction. The additive model uses marginal value functions
+to approximate the explicit relationship between the outcome and individual
+attributes whereas the MLP is used to capture the implicit high-order correla-
+tions between attributes in the model. We estimate the parameters in the model
+under a neural network framework that automatically balances the trade-oﬀbe-
+tween two components.
+We validate the proposed model using a set of synthetic datasets and three
+real datasets.
+Speciﬁcally, the simulation experiments respectively show the
+impact of pre-deﬁned parameters on model performance when data is either ex-
+tremely complex or simple. Three real datasets on ranking universities regarding
+employment reputation, predicting the risk for geriatric depression, and predict-
+ing the success of bank telemarketing are used to illustrate the proposed model
+in real scenarios. We explain the obtained model and compare its performance
+with that of baseline interpretable models, i.e., GAM and logistic regression
+models, for the ﬁrst two datasets. We further verify the eﬃcacy of the pro-
+posed model with the third dataset through comparing its performance with
+the results reported in the literature.
+The contributions of this paper are fourfold. First, we advocate a new per-
+spective of a hybrid machine learning model that both quantiﬁes the explicit
+impact of individual attributes on the outcome and captures the implicit high-
+order correlations among attributes. It helps the DM understand the main eﬀect
+of single attribute, and at the same time, make better decisions. Second, to the
+best of our knowledge, this paper is the ﬁrst pilot work that introduces the value
+function-based preference disaggregation approaches of MCDA to the machine
+learning models to enhance the model interpretability. The trained parameters
+in the proposed framework determine the shape for marginal value functions
+4
+
+===== PAGE 5 =====
+in the additive models. The proposed model is free from preference indepen-
+dence, preference monotonicity, and small learning set assumptions in MCDA
+approaches, and thus makes MCDA approaches more general and practical for
+real-world management problems. Third, we examine the model eﬀectiveness
+given diﬀerent model parameters and datasets. The empirical conclusions about
+the relationships between model interpretability and data complexity are man-
+agerially intuitive for DM and insightful for future research. Fourth, the pro-
+posed framework is ﬂexible and extendible, especially the nonlinear part, which
+can be modiﬁed or replaced by other network structures or modeling schemes
+according to diﬀerent tasks.
+The rest of the paper is organized as follows. We discuss the related work
+in Section 2. In Section 3, we introduce the framework for the proposed model.
+The simulation and real case experiments are presented in Section 4 and some
+discussions about the proposed framework is provided in Section 5. We conclude
+the paper in Section 6.
+2. Related work.
+2.1. Value function-based preference disaggregation approach of MCDA.
+The value function-based preference disaggregation approaches of MCDA
+provide explicit marginal value functions and numerical scores.
+A DM can
+understand the importance of a particular attribute and how the individual at-
+tributes contribute to the ﬁnal decision. This procedure encourages the DM to
+participate in the decision making process and it provides a comprehensive pref-
+erence model. These approaches have been successfully applied to many scenar-
+ios, such as consumer preference analysis (Guo et al., 2019), ﬁnancial decisions
+(Barbati et al., 2018), nano-particles synthesis assessment (Kadzi´nski et al.,
+2018), territorial transformation management (Ciomek et al., 2018), and medical
+therapy (Hasan et al., 2019). However, the applications of value function-based
+preference disaggregation approaches are limited due to some strong assump-
+tions, such as (1) preference independence, (2) monotonic preference, and (3)
+small set of alternatives.
+Recently, many novel models haven been proposed to generalize the value
+function-based preference disaggregation approaches of MCDA. Preference in-
+dependence allows the model to be additive. Considering interacted attributes,
+Angilella et al. (2010) utilize a fuzzy measure to model the preference system
+where the alternatives are now evaluated in terms of the Choquet integral. How-
+ever, it is diﬃcult for the DM to understand the impact of individual attribute
+evaluated from the Choquet integral. Angilella et al. (2014) account for positive
+and negative interactions among attributes, and add an interaction term to the
+additive global value function for each alternative. They require the DM to pro-
+vide some knowledge about the interacted pairs that are mined by the models.
+These studies only consider the interaction between pairs of attributes because
+higher-order interactions require more cognitive eﬀorts and more computational
+cost.
+5
+
+===== PAGE 6 =====
+The majority of existing researches assume the marginal value functions are
+monotonic piece-wise linear. This assumption reduces the model complexity,
+but it fails to describe preference inﬂexions. Addressing this problem, Ghaderi
+et al. (2017) and Liu et al. (2019) relax this assumption and constrain on vari-
+ations of the slope to obtain non-monotonic marginal value functions without
+serious over-ﬁtting problem. Both of their approaches obtain non-smooth value
+functions which are diﬃcult to interpret attitudes towards risks due to the use
+of non-derivative functions.
+Since a diﬀerentiable marginal value function is
+essential to analyze consumer behavior, Sobrie et al. (2018) utilize semideﬁnite
+programming to infer the key parameters for polynomial marginal value func-
+tions. It gives a more ﬂexible and interpretable preference model. However, it
+still assumes that the DM preference is monotonic.
+The monotonic piece-wise form of the marginal value functions has a low
+expressibility for large learning sets (Sobrie et al., 2018). Nowadays, MCDA
+approaches are expected to deal with large amount of data in many disciplines
+(Pelissari et al., 2019). Liu et al. (2019) embed the MCDA approach into a
+regularization framework to approximate marginal value functions in any piece-
+wise linear shapes, and provide eﬃcient algorithms to handle larger learning
+sets.
+Most existing researches focus on expanding the MCDA approaches from
+only one perspective.
+Comparing with these recent advances, the proposed
+framework tries to solve all aforementioned limitations of MCDA by providing
+a non-monotonic, smoother, and more powerful MCDA approach for real-world
+applications considering more complex decision making scenarios.
+2.2. Interpretable models in management.
+Generalized additive model (GAM) uses a link function to build a connec-
+tion between the mean of the prediction and a smooth function of the variables
+(Hastie and Tibshirani, 1986). It is good at both dealing with and presenting the
+nonlinear and non-monotonic relationship between the variables and the predic-
+tion (Lou et al., 2012). Therefore, GAM is usually more accurate than linear
+additive models. Although GAM does not outperform full complexity models, it
+possesses more interpretability than these “black-box” models. Lou et al. (2013)
+explore the co-eﬀect of pairwise interactions and apply the improved GAM to
+predicting pneumonia risk and 30-day readmission. This model helps the DM
+(physician) to ﬁnd useful patterns in the data and quantiﬁes the contributions
+of individual attributes. Based on these promising results, they argue that it is
+necessary to develop more interpretable models in mission-critical applications
+such as management problems (Caruana et al., 2015).
+A recent work proposes a structured-eﬀect model for forecasting the remain-
+ing useful life of machines (Kraus and Feuerriegel, 2019). The model combines
+non-parametric approaches and a deep recurrent neural network. The beneﬁt
+of the former part is to provide a linear structure where one can understand
+the importance of the predictors by comparing the obtained coeﬃcients, while
+the latter helps to improve the ﬂexibility of the model, thereby increasing the
+6
+
+===== PAGE 7 =====
+model performance. The proposed model can achieve state-of-the-art perfor-
+mance compared to some traditional approaches but remains interpretable.
+Another solution for explaining the predictions is to infer a new model to
+approximate the true black-box model. The new model may not be as accurate
+as the original black-box model, but can identify patterns and rules to explain
+how the predictions are made. In Baesens et al. (2003), explanatory rules are
+extracted to help the credit-risk managers in explaining their decisions. Simi-
+larly, Letham et al. (2015) discretize a high-dimensional attribute space into a
+series of simpler interpretable if-then statements. They ﬁrstly make predictions
+using complex machine learning techniques and then use Bayesian rule lists to
+reconstruct the stroke predictions. Given approximately accurate predictions,
+the obtained model is more interpretable.
+3. Framework for the intelligible model.
+Let D = {(xi, yi)}N
+1 be the dataset of size N, xi = (xi,1, · · · , xi,n)T be the
+i-th attribute vector with n attributes3, and yi be the target/response value. In
+this study, we consider a binary classiﬁcation problem where yi ∈{0, 1}. The
+proposed framework can be easily extended to multi-classiﬁcation and regression
+problems.
+3.1. The additive model.
+The value function-based preference disaggregation approaches of MCDA
+assume that for each attribute vector xi ⊆Rn, there is a global value function
+in the following form:
+F(xi) = w1 · v1(xi,1) +w2 · v2(xi,2) +· · · + wn · vn(xi,n) =
+Xn
+j=1 wjvj(xi,j) (1)
+where 0 ≤wj ≤1, j = {1, 2, · · · , n} represents the importance of the j-th at-
+tribute and vj(·) is a marginal value function. Note that we reply the shape
+and positive/negative eﬀect of the marginal value function to capture the con-
+tribution of individual attributes. Thus we set the weight wj to be positive to
+represent the relative importance of the j-th attribute, which can positively or
+negatively aﬀect the global value. The global value function F(·) linearly sums
+contributions of individual attributes.
+Although the global value function is in an additive linear form, the marginal
+value functions themselves can be in any forms, often nonlinear. It has been
+recognized that the preference in human decision behaviors is rational, and thus
+the marginal value functions should be stable and smooth. In the literature, the
+marginal value function can be in a simple linear (weighted sum) form (Rezaei,
+2016; Korhonen et al., 2012), monotonic and non-monotonic piecewise linear
+forms (Stewart, 1993; Jacquet-Lagreze and Siskos, 2001; Greco et al., 2008;
+Ghaderi et al., 2017), and monotonic polynomial form (Sobrie et al., 2018).
+3In MCDA, xi is called an alternative with n criteria/attributes.
+7
+
+===== PAGE 8 =====
+To capture the ﬁrst-order (e.g. monotonicity) and second-order (e.g. marginal
+rate in substitution) derivative patterns of the attributes’ contributions to the
+prediction, we extend and generalize state-of-the-art MCDA models (Liu et al.,
+2019; Sobrie et al., 2018) to allow the marginal value function in any polynomial
+forms. In this paper, we allow the j-th marginal value function to be in a smooth
+and non-monotonic form of Dj degrees:
+vj(xi,j) = pj,1x1
+i,j + pj,2x2
+i,j + · · · + pj,DjxDj
+i,j
+(2)
+where pj,d ∈R, d = {1, 2, · · · , Dj} is the coeﬃcient of the d-th degree and Dj is
+the highest order of degree on the j-th attribute.
+The motivations using Eq.(2) as a marginal value function are derived from
+two facets.
+First, we enhance the expressiveness of the preference model to
+capture non-monotonic preferences. For example, piecewise linear or monotonic
+polynomial functions fail to restore all information in a larger learning set (So-
+brie et al., 2018). The nonlinearity and non-monotonicity of Eq.(2) can better
+ﬁt complex relationships between attributes and the outcome, leading to a bet-
+ter model performance. Second, while analyzing human behavior, it is critical
+to examine the trade-oﬀs or marginal rates of substitution in economics and
+management studies. A non-derivative value function, for instance the boosted
+bagged trees model in Lou et al. (2012), cannot capture the inﬂexion point
+where the marginal rate of substitution grows or diminishes more quickly. A
+model exploiting human behaviors seems convincing and has more managerial
+meaning for the DM in management scenarios.
+3.2. Neural network-based MCDA.
+Full complexity models perform well on many machine learning tasks be-
+cause they can model both the nonlinearity and the interactions between at-
+tributes. An additive model like Eq.(1) does not model any interactions between
+attributes. Therefore, we propose a neural network-based multiple criteria de-
+cision aiding (NN-MCDA) model in the following form
+U(xi)
+= α
+Xn
+j=1 wjvj(xi,j) + (1 −α)f(xi,1, xi,2, · · · , xi,n)
+(3)
+= αF(xi) + (1 −α)f(xi,1, xi,2, · · · , xi,n)
+(4)
+where U(xi) is the global score of xi, f(·) is a latent function of all attributes,
+and α ∈[0, 1] is a trade-oﬀcoeﬃcient. Eq.(4) describes (a) a regression model if
+U(·) is the identity, and (b) a classiﬁcation model if U(·) is the logistic function
+of the identity. f(·) is used to capture the high-order interrelations between
+attributes in the model. We can use any complexity models to ﬁt f(·) for better
+performance, for instance we use a MLP in this paper (Rosenblatt, 1958). While
+using an MLP form of f(·), it is not transparent, meaning that we do not know
+the exact structure of f(·). Since we have the F(·) to capture the explainable
+form of the marginal value functions, the non-transparent f(·) describes the
+complex patterns that are not readily useful to the DM. Coeﬃcient α balances
+8
+
+===== PAGE 9 =====
+Output Unit
+Linear 
+Component
+Nonlinear 
+Component
+Input Layer
+Input Data
+Figure 1: The framework for NN-MCDA.
+the trade-oﬀbetween F(·) and f(·). If α is close to 1, the model tends to be in
+a simple additive form. If α is close to 0, we obtain a full complexity model.
+The utilized joint training process is shown in Figure 1.
+The input at-
+tribute vectors should be transformed into polynomial forms, i.e., Φ(xi) =
+(x1
+i,1, · · · , xD1
+i,1 , x1
+i,2, · · · , xD2
+i,2 , · · · , x1
+i,n, · · · , xDn
+i,n )T . In the input layer, a single-
+layer network without any activation functions is provided to reconstruct Eq.(1).
+It has Pm
+j=1 Dj units and the weight for each unit corresponds to a particular
+pj,d. We denote the output of the linear component with zlinear
+i
+, and
+zlinear
+i
+= (w1, · · · , wj, · · · , wn)
+
+
+
+
+
+
+
+
+pT
+1 φ(xi,1)
+...
+pT
+j φ(xi,j)
+...
+pT
+mφ(xi,n)
+
+
+
+
+
+
+
+
+= wT Pi
+(5)
+where pj = (pj,1, pj,2, · · · , pj,Dj)T is the vector of coeﬃcients in the j-th poly-
+nomial marginal value function, φ(xi,j) = (x1
+i,j, · · · , xDj
+i,j )T is the transformed
+input vector, w is the vector of weights of attributes, and Pi contains marginal
+values of i-th attribute vector. Note that, Eq.(5) is actually a speciﬁc case of
+Eq.(1). In Eq.(1), the marginal value functions v(·) can be in any shapes (e.g.
+piece-wise linear). However, in this study, we allow them to be in a polynomial
+form in Eq.(2). Thus, F(·) is a generalization of zlinear
+i
+.
+The nonlinear component is a standard MLP. It is used to learn high-order
+correlations between attributes. Similarly, by summing every Dj units we can
+obtain a marginal value on the j-th attribute. For activation functions, we opt
+9
+
+===== PAGE 10 =====
+for Rectiﬁer (ReLU), which is is the most commonly used activation function in
+neural networks (Glorot et al., 2011). We can also use other activation functions
+such as Sigmoid and TanH functions. An L-layer MLP is deﬁned as:
+z1(xi)
+= Φ(xi),
+z2(xi)
+= a1(WT
+1 z1 + b1),
+· · ·
+(6)
+zL(xi)
+= aL−1(WT
+L−1zL−1 + bL−1),
+znonlinear
+i
+= hT zL(xi),
+where Wl, bl and al denote the weight matrix, bias vector and activation func-
+tion for the l-th layer, respectively. The input of the MLP model is the same as
+the input for the linear part, i.e., Φ(xi).
+The output is the probability of yi = 1, we have
+P(ˆyi = 1|xi) = σ(αzlinear
+i
++ (1 −α)znonlinear
+i
+)
+(7)
+where σ(·) is a sigmoid function. To estimate the parameters, we minimize the
+mean square error (MSE):
+MSE = 1
+N
+XN
+i=1 (P(ˆyi = 1|xi) −yi)2
+(8)
+We can adopt a variety of optimization methods to minimize Eq.(8), such as
+Stochastic Gradient Descent (SGD), Adaptive Gradient Algorithm (Adagrad)
+and Adaptive Moment Estimation (Adam). Please refer to Le et al. (2011) for
+details of the optimization procedure. The interpretability of the model refers to
+the capacity in developing marginal value functions, which capture the relation-
+ship between individual attributes and prediction. With the proposed model,
+the DM can know what attributes are more important for the prediction, what
+values of an attribute are positively or negatively associated to the prediction,
+and where the convexity and concavity of the function are changed.
+Proposition 1. When al(·), l = 1, . . . , L are linear activation functions, the
+proposed NN-MCDA model degenerates to an additive model.
+Proof. See Appendix A
+Proposition 2. When a1(·) is a nonlinear activation function, if L = 1, the
+lower-order interacting attributes can be explicitly expressed.
+If L ≥2, the
+higher-order interacting attributes cannot be explicitly expressed.
+Proof. See Appendix B
+Given Propositions 1 and 2, a neural network with nonlinear activation func-
+tions and more than one layers will bring extremely complex transformations of
+attribute interactions that are hard to be explicitly presented, thereby detecting
+the main eﬀects of the individual attributes in the presence of these interactions
+is an alternative way to interpret the predictions.
+10
+
+===== PAGE 11 =====
+3.3. Application to multiple criteria ranking problems.
+In this subsection, we will show how to apply NN-MCDA to traditional
+multiple criteria ranking problems where alternatives are ranked based on the
+DM’s judgment. In this paper, alternatives are represented as attribute vectors.
+Let xi ≿xk denote that an attribute vector xi is at least as good as xk,
+and xi ≻xk denote that xi is better than xk. Note that the symbol ‘≿’(or ‘≻’)
+does not necessarily require that each element in xi is at least as good as (or
+better than) that in xk. It actually indicates that one alternative is at least as
+good as (or better than) another one based on the DM’s judgment. For each
+pair (xi, xk), we deﬁne yi,k as follows:
+yi,k =
+ 1,
+if
+xi ≿xk,
+0,
+if
+xk ≻xi,
+(9)
+and the diﬀerence between global scores of xi and xk is:
+U(xi) −U(xk)
+= α
+Xn
+j=1 wjvj(xi,j) + (1 −α)f(xi)
+−[α
+Xn
+j=1 wjvj(xk,j) + (1 −α)f(xk)]
+= α
+Xn
+j=1 wj(vj(xi,j) −vj(xk,j)) + (1 −α)[f(xi) −f(xk)]
+= α
+Xn
+j=1 wj
+XDj
+d=1 pj,d(xd
+i,j −xd
+k,j) + (1 −α)[f(xi) −f(xk)]
+= α
+Xn
+j=1 wj(pT
+j × φ(xi,j, xk,j)) + (1 −α)Θ(Φ(xi, xk))
+= αwT (Pi −Pk) + (1 −α)Θ(Φ(xi, xk))
+where φ(xi,j, xk,j) = (x1
+i,j −x1
+k,j, x2
+i,j −x2
+k,j, · · · , xDj
+i,j −xDj
+k,j)T . Let Φ(xi, xk) be
+the aggregated vector for φ(xi,j, xk,j):
+Φ(xi, xk) =
+
+
+x1
+i,1 −x1
+k,1, . . . xD1
+i,1 −xD1
+k,1
+|
+{z
+}
+D1
+, x1
+i,2 −x1
+k,2, . . . , xD2
+i,2 −xD2
+k,2
+|
+{z
+}
+D2
+, x1
+i,3 −x1
+k,3, . . .
+|
+{z
+}
+D3
+, . . . , . . . , xDn
+i,n −xDn
+k,n
+|
+{z
+}
+Dn
+
+
+
+T
+and Θ(Φ(xi, xk)) be a function of Φ(xi, xk). We ﬁt Θ(·) function to approximate
+the value of f(xi) −f(xk). Note that in some decision problems, the attribute
+weights wj, j = 1, · · · , n in Eq.(3) are normalized to [0, 1] and Pn
+j=1 wj = 1,
+which are useful for interpreting the trade-oﬀs between attributes4. To address
+this issue, we apply the following transformation:
+4Note that the trade-oﬀbetween attributes is similar to attribute importance, but the
+trade-oﬀemphasizes that assigning more weight to an attribute would decrease other at-
+tributes. That usually leads to a situation where some attributes have almost no eﬀects on
+the predictions, which is unexpected because the selected attributes are often summarized
+based on DM’s prior knowledge and their requirements. In this regard, we tend to train our
+model without normalization but provide normalized weights to evaluate the trade-oﬀs be-
+tween attributes (Liu et al., 2019). Moreover, there are few minor diﬀerences on performances
+when using normalized weights or not.
+11
+
+===== PAGE 12 =====
+• For each attribute gj, j = 1, · · · , n, the normalized weight is w′
+j =
+wj
+Pn
+j=1 wj .
+• The new global score is U ′(xi) = α Pn
+j=1 w′
+jvj(xi,j)+
+(1−α)
+Pn
+j=1 wj f(xi,1, xi,2, · · · , xi,n).
+Moreover, the ordinal relations among all attribute vectors are preserved
+since U ′(xi) −U ′(xk) =
+U(xi)−U(xk)
+Pn
+j=1 wj
+and U(xi) ≥U(xk) ⇔U ′(xi) ≥
+U ′(xk).
+Given the input data D = {(Φ(xi, xk), yi,k)}, instead of mathematical pro-
+gramming, we can now use the machine learning scheme in section 3.2 to in-
+fer the preference model and rank other attribute vectors. The output ˆyi,k =
+σ(U(xi) −U(xk)) is the probability that xi is at least as good as xk. We can
+pre-deﬁne two thresholds η1 and η2, where 0 ≤η1 ≤η2 ≤1. If η2 ≤ˆyi,k, then
+xi ≻xk, and if η1 ≤ˆyi,k ≤η2, then xi ∼xk and otherwise, xk ≻xi. If we
+use the normalized weights, since the probability ˆy′
+i,k = σ(U ′(xi) −U ′(xk)) is
+transformed nonlinearly, the pre-deﬁned thresholds should also be transformed
+as follows, η1
+i,k =
+ˆy′
+i,k
+yi,k η1, η2
+i,k =
+ˆy′
+i,k
+yi,k η2, to preserve the ordinal relations.
+In
+this way, the traditional multiple criteria ranking approaches can handle larger
+datasets and obtain smoother and more ﬂexible marginal value functions to as-
+sist the DM. We present the simulation results in Section 4.1 and the results
+using real datasets in Section 4.2.
+3.4. Usefulness of the proposed framework in decision making.
+As we introduce MCDA into machine learning, the main objective is shifted
+from achieving the best predictive performance to facilitating the DM in gaining
+insights into the characteristics of the decision making process and the inter-
+pretations of the results (Doumpos and Zopounidis, 2011). Once the marginal
+value functions are obtained by the proposed NN-MCDA framework, we can
+further analyze the DM’s preference from the following perspectives.
+−0.2
+0.0
+0.2
+Marginal value function 1
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+Marginal value function 2
+−0.2
+0.0
+0.2
+Marginal value function 3
+0.0
+0.2
+0.4
+Marginal value function 4
+Figure 2: Exemplary marginal value functions.
+First, the attribute importance usually has a long-tail distribution, with a
+few of them being very important and the majority of them being less important
+(Caruana et al., 2015).
+The characteristics of the marginal value functions
+can reveal the importance of the corresponding attribute. If a marginal value
+function is close to 0 for the whole scale of the attribute values, it indicates
+12
+
+===== PAGE 13 =====
+that the attribute is either not important to the DM or the characteristic of
+the marginal value function is wrongly captured, because the change of this
+attribute has little inﬂuence on the predictions. When this is the case, we need
+to interact with the DM to determine whether we preserve this attribute or
+calibrate the model. In this regard, the proposed framework can perform model
+selection and modiﬁcation (similar to statistical approaches like LASSO). For
+example, while predicting if a patient has the ﬂu, the marginal value function
+of “room humidity” is in a shape like the marginal value function 1 in Figure 2,
+it is possible that “room humidity” has little contribution to the ﬂu. However,
+whether we abandon it should be determined by a physician.
+Second, the increasing and decreasing tendencies of the marginal value func-
+tion curves reveal the change of the DM’s non-monotonic preference. We fo-
+cus on the monotonicity inﬂexion points because they can determine that to
+what attribute values, the DM is more sensitive. Moreover, if we partition the
+marginal value function curve by these points, we can discretize the continuous
+attribute into smaller ranges in which the DM’s preference is monotonic. Such
+smaller intervals are useful for personalization (e.g.
+customer segmentation)
+and strategy-making tasks in management. For example, while evaluating the
+company’s performance, if the marginal value function of “cash to total assets
+ratio” is like the second function in Figure 2, we can learn that a company with
+a very small or large “cash to total assets ratio” is in a bad condition. Compa-
+nies with a large ratio are suggested to use the cash to do more investigations,
+whereas companies with a small ratio are suggested to save general expenses so
+that more cash can be used in new investigations.
+Third, since the marginal value function returns a “score” that is added to
+the global value, it is crucial to determine whether the attribute positively or
+negatively contributes to the outcome. If a marginal value function is above/below
+zero, the corresponding attribute is positively/negatively associated with the
+prediction. The marginal value function can capture the sign change (if any) of
+an attribute’s contribution and provide the DM an exact attribute value where
+the sign changes.
+This is more informative than the statistical models that
+only provide a ﬁxed coeﬃcient representing either positive or negative eﬀect
+of the attribute. For example, when predicting the risk of depression among
+adults, the marginal value function of “age” may has a shape similar to the
+third function in Figure 2 (please also refer to Figure 17, which is drawn from
+the real-data). The shape of this curve indicates that the risk of depression does
+not increase while aging if the adult is younger than a threshold. The risk will
+increase once the adult is older than that threshold (the threshold is 71.58 in the
+real data introduced in section 4.3). Statistical models, on the other hand, can
+only conclude that age has either a negative or positive eﬀect on the depression
+risk. We need to segment the adults to pre-deﬁned age groups to capture such
+sign change eﬀect.
+Fourth, the concavity (and convexity) of the marginal value function can
+directly reﬂect the changing rate of the DM’s preference.
+Such information
+is important to both economics and marketing problems. For example, if the
+consumer’s preference to “discount rate” is in a same shape of marginal value
+13
+
+===== PAGE 14 =====
+function 4 in Figure 2, it implies that at the beginning, along with the increase
+of the discount rate, the consumer’s utility (propensity to consume the product)
+grows more quickly. However, when the discount rate is over a speciﬁc value,
+it gives a signal that the product is possibly of bad quality.
+Although the
+consumer’s utility still grows, its rate of increase starts to slow down.
+This
+provides the DM with a conclusion that keeping the discount rate at a medium
+level could maximize the proﬁt.
+4. Experiments.
+To validate the proposed NN-MCDA model, we perform experiments with
+both synthetic and real datasets. We use area under the curve (AUC) of re-
+ceiver operating characteristic (ROC) curve to measure the model performance.
+In subsection 4.1, three simulation experiments examine (a) the inﬂuence of
+the degree of polynomial on the prediction performance, (b) the inﬂuence of
+the value of α, the trade-oﬀcoeﬃcient, on prediction performance, and (c) the
+goodness of the proposed NN-MCDA approach in ﬁtting the given marginal
+value functions. In Section 4.2, we ﬁrst apply the NN-MCDA model to a multi-
+ple criteria decision problem where we rank universities based on the employer
+reputation. Then we predict the risk for geriatric depression with useful in-
+terpretations of the risk factors with a higher resolution. At last, we perform
+the NN-MCDA on an open access data to compare the results with a published
+paper.
+4.1. Simulations.
+For brevity, we set equal pre-deﬁned degrees of polynomial for all marginal
+value functions in the subsequent experiments. We generate three typical syn-
+thetic datasets (from the simplest to very complex) as follows:
+1. Uniformly draw N attribute vectors with n attributes whose values are
+within [0,1].
+2. We generate three datasets. (a) For the ﬁrst dataset Dn
+l , all n attributes
+have equal importance and the actual marginal value functions are identity
+functions. The global score for each attribute vector is a linear summa-
+tion of n attribute values without any attribute interactions and an addi-
+tional noise term that is in a standard normal distribution; (b) The second
+dataset Dn
+polynomial−3 randomly generates 3-degree polynomials marginal
+value functions for n attributes, and the global score is the summation
+of marginal values, all
+ n
+2
+
+attribute interactions and a standard normal
+noise term. (c) The third dataset Dn
+polynomial−15 is extremely complex.
+The global score is the summation of n 15-degree polynomial marginal
+values, all possible attribute interactions (pairwise, triple-wise and higher
+interactions) and a standard normal noise term.
+3. We compare global scores between each pair of attribute vectors.
+If
+U(xi) −U(xk) ≥0, then yi,k = 1, otherwise, yi,k = 0. Note that the
+actual input is the transformed attribute vector.
+14
+
+===== PAGE 15 =====
+4.1.1. Experiment I: Relationship between degree of polynomial and model per-
+formance
+The ﬁrst simulated experiment aims at exploring the relationship between
+the pre-deﬁned degree of polynomial and AUC. The parameters used in the
+experiment is shown in Table 1. For each setting, we iteratively repeat the ex-
+periment for 10 times and record the averaged AUC. In this experiment, the
+numbers of iterations are determined using ﬁvefold cross-validation: We parti-
+tion the training set into ﬁve sets and set aside one of them as a validation set.
+We then train the model using the other four partitions and use the validation
+set to check the convergence. This procedure is repeated ﬁve times and the
+averaged number of iterations is used to train the ﬁnal model with the whole
+dataset (Lou et al., 2012).
+Table 1: Parameter settings for simulation experiment I.
+N
+# Comparisons
+Training size
+Pre-deﬁned Dj
+# Attributes
+Setting
+250
+250∗249
+2
+0.5, 0.6, 0.7, 0.8, 0.9
+1, 2, 3, 5, 10
+3, 5
+degree 1
+degree 2
+degree 3
+degree 5
+degree 10
+0.94
+0.95
+0.96
+0.97
+0.98
+0.99
+1.00
+AUC for Testing set
+Training size 0.5
+Training size 0.6
+Training size 0.7
+Training size 0.8
+Training size 0.9
+degree 1
+degree 2
+degree 3
+degree 5
+degree 10
+0.94
+0.95
+0.96
+0.97
+0.98
+0.99
+1.00
+AUC for Testing set
+Training size 0.5
+Training size 0.6
+Training size 0.7
+Training size 0.8
+Training size 0.9
+Figure 3: The average AUC for the testing set using training set with diﬀerent sizes from
+datasets D3
+l and D5
+l .
+degree 1
+degree 2
+degree 3
+degree 5
+degree 10
+0.745
+0.750
+0.755
+0.760
+0.765
+0.770
+0.775
+0.780
+AUC for Testing set
+Training size 0.5
+Training size 0.6
+Training size 0.7
+Training size 0.8
+Training size 0.9
+degree 1
+degree 2
+degree 3
+degree 5
+degree 10
+0.81
+0.82
+0.83
+0.84
+0.85
+0.86
+0.87
+AUC for Testing set
+Training size 0.5
+Training size 0.6
+Training size 0.7
+Training size 0.8
+Training size 0.9
+Figure 4: The average AUC for the testing set using training set with diﬀerent sizes from
+datasets D3
+polynomial−3 and D5
+polynomial−3.
+Figures 3, 4 and 5 report the averaged AUC for the testing set with diﬀerent
+training sizes using the three synthetic datasets. Though there are no obvious
+15
+
+===== PAGE 16 =====
+degree 1
+degree 2
+degree 3
+degree 5
+degree 10
+0.58
+0.60
+0.62
+0.64
+0.66
+0.68
+AUC for Testing set
+Training size 0.5
+Training size 0.6
+Training size 0.7
+Training size 0.8
+Training size 0.9
+degree 1
+degree 2
+degree 3
+degree 5
+degree 10
+0.69
+0.70
+0.71
+0.72
+0.73
+0.74
+0.75
+0.76
+0.77
+0.78
+AUC for Testing set
+Training size 0.5
+Training size 0.6
+Training size 0.7
+Training size 0.8
+Training size 0.9
+Figure 5: average AUC for the testing set using training set with diﬀerent sizes from datasets
+D3
+polynomial−15 and D5
+polynomial−15.
+degree 1
+degree 2
+degree 3
+degree 5
+degree 10
+6.0
+6.5
+7.0
+7.5
+8.0
+8.5
+9.0
+9.5
+log(time)
+D3
+l
+D5
+l
+degree 1
+degree 2
+degree 3
+degree 5
+degree 10
+6.5
+7.0
+7.5
+8.0
+8.5
+9.0
+9.5
+10.0
+log(time)
+D3
+polynomial −3
+D5
+polynomial −3
+degree 1
+degree 2
+degree 3
+degree 5
+degree 10
+8.0
+8.5
+9.0
+9.5
+10.0
+10.5
+11.0
+log(time)
+D3
+polynomial −15
+D5
+polynomial −15
+Figure 6: The average computational time for diﬀerent datasets. The recoded computational
+times in the ﬁgure are the averaged time for training all ﬁve training sizes given a pre-deﬁned
+degree of polynomials.
+relationships between the training sizes and the model performance, we ﬁnd two
+interesting patterns. First, higher pre-deﬁned degrees of polynomials can lead to
+higher accuracy when convergence. That results from the ability of the under-
+lying model to capture more complicated nonlinearity. However, higher degrees
+of polynomials usually require more iterations to converge. More speciﬁcally,
+we depict the averaged computational time for each training process in Figure
+6. Apparently, while increasing the model complexity, for example, using higher
+degrees of polynomial marginal value function and considering more attributes,
+the average computational time to converge also increases almost linearly. An-
+other interesting pattern is that the shape of the AUC curves (Figures 3, 4 and
+5) can ﬁt a concave function in general. When the degree increases, the AUC
+improvement (over the model with the immediate smaller degree) is becoming
+smaller. For example, the improvement is more obvious if we change the pre-
+deﬁned degree from 1 to 3 than that if we change from 3 to 5 and from 5 to 10.
+The improvement diminishes quickly along with the increase of pre-deﬁned de-
+gree of polynomials. The greatest AUC improvement happens if we increase the
+degree to 3, while the improvement resulted from further increasing the degree
+to 5 and 10 is slim. The results suggest that it is not necessary to set a very
+large Dj for the seek of minor improvement because the computational cost in-
+creases much faster when Dj increases. Generally, we believe that a polynomial
+16
+
+===== PAGE 17 =====
+of 3 degree is suﬃcient to capture the characteristics for all the three datasets.
+Higher degrees of polynomials have a risk for over-ﬁtting and obviously cost
+more computational time, but contribute little to accuracy.
+Table 2: The average AUCs ± one deviation on dataset D3
+l and D5
+l using diﬀerent machine
+learning algorithms.
+n=3
+n=5
+Training size
+0.5
+0.6
+0.7
+0.8
+0.9
+0.5
+0.6
+0.7
+0.8
+0.9
+NN-MCDA-D1
+0.949±0.023
+0.959±0.021
+0.960±0.011
+0.955±0.009
+0.951±0.005
+0.953±0.021
+0.955±0.014
+0.951±0.019
+0.941±0.013
+0.945±0.012
+NN-MCDA-D2
+0.956±0.022
+0.958±0.027
+0.978±0.019
+0.971±0.007
+0.965±0.003
+0.962±0.018
+0.955±0.021
+0.968±0.009
+0.957±0.022
+0.962±0.018
+NN-MCDA-D3
+0.965±0.031
+0.963±0.024
+0.984±0.019
+0.981±0.004
+0.976±0.003
+0.980±0.019
+0.972±0.019
+0.972±0.021
+0.986±0.013
+0.978±0.010
+NN-MCDA-D5
+0.983±0.026
+0.971±0.020
+0.988±0.019
+0.989±0.005
+0.988±0.001
+0.983±0.028
+0.989±0.018
+0.876±0.037
+0.992±0.009
+0.982±0.010
+NN-MCDA-D10
+0.986±0.011
+0.993±0.010
+0.991±0.009
+0.991±0.002
+0.994±0.001
+0.998±0.013
+0.989±0.029
+0.996±0.009
+0.992±0.007
+0.985±0.008
+MLP-D1
+0.969±0.001
+0.951±0.005
+0.960±0.000
+0.957±0.000
+0.998±0.001
+0.970±0.001
+0.969±0.002
+0.977±0.001
+0.981±0.001
+0.966±0.000
+MLP-D2
+0.970±0.002
+0.969±0.003
+0.973±0.003
+0.970±0.001
+0.999±0.002
+0.979±0.001
+0.980±0.000
+0.989±0.001
+0.988±0.001
+0.988±0.001
+MLP-D3
+0.992±0.001
+0.990±0.001
+0.987±0.002
+0.989±0.001
+0.973±0.001
+0.987±0.002
+0.991±0.001
+0.991±0.001
+0.995±0.000
+0.996±0.000
+MLP-D5
+0.999±0.001
+0.993±0.000
+0.990±0.001
+0.998±0.000
+0.999±0.001
+0.995±0.001
+0.996±0.001
+0.995±0.002
+0.996±0.000
+0.996±0.000
+MLP-D10
+0.999±0.002
+0.997±0.001
+0.995±0.000
+0.999±0.001
+0.999±0.001
+0.999±0.001
+0.999±0.001
+0.998±0.001
+0.998±0.001
+0.999±0.000
+SVM-Linear
+0.998±0.001
+0.998±0.001
+0.998±0.001
+0.998±0.000
+0.998±0.000
+0.997±0.002
+0.998±0.003
+0.997±0.001
+0.997±0.000
+0.997±0.000
+SVM-RBF
+0.998±0.001
+0.997±0.000
+0.998±0.001
+0.998±0.000
+0.999±0.001
+0.995±0.001
+0.996±0.000
+0.996±0.003
+0.996±0.001
+0.996±0.001
+SVM-D3poly
+0.967±0.002
+0.969±0.001
+0.962±0.000
+0.971±0.001
+0.973±0.000
+0.987±0.003
+0.991±0.000
+0.986±0.001
+0.988±0.002
+0.989±0.001
+GAM-D3
+0.983±0.011
+0.983±0.017
+0.983±0.009
+0.982±0.003
+0.985±0.002
+0.986±0.010
+0.985±0.011
+0.984±0.010
+0.986±0.009
+0.984±0.010
+GAM-D10
+0.985±0.010
+0.984±0.018
+0.984±0.010
+0.983±0.002
+0.985±0.001
+0.987±0.008
+0.985±0.009
+0.985±0.011
+0.986±0.010
+0.986±0.011
+DeciTr-MaxDep6
+0.842±0.001
+0.842±0.003
+0.843±0.001
+0.835±0.001
+0.831±0.000
+0.931±0.001
+0.927±0.000
+0.937±0.000
+0.933±0.000
+0.938±0.000
+DeciTr-MaxDep10
+0.896±0.002
+0.893±0.000
+0.890±0.002
+0.897±0.001
+0.898±0.000
+0.965±0.001
+0.965±0.000
+0.971±0.001
+0.971±0.000
+0.967±0.000
+DeciTr-MaxDep20
+0.900±0.003
+0.898±0.001
+0.895±0.000
+0.908±0.000
+0.903±0.000
+0.966±0.001
+0.966±0.001
+0.972±0.001
+0.974±0.001
+0.970±0.000
+PLR-D1
+0.899±0.014
+0.903±0.022
+0.901±0.021
+0.900±0.011
+0.901±0.000
+0.903±0.011
+0.902±0.019
+0.900±0.016
+0.910±0.018
+0.911±0.009
+PLR-D2
+0.910±0.017
+0.913±0.023
+0.928±0.012
+0.923±0.016
+0.922±0.001
+0.923±0.017
+0.931±0.011
+0.929±0.019
+0.931±0.011
+0.936±0.016
+PLR-D3
+0.945±0.020
+0.933±0.017
+0.945±0.014
+0.941±0.004
+0.914±0.001
+0.941±0.010
+0.952±0.009
+0.946±0.014
+0.956±0.012
+0.944±0.010
+PLR-D5
+0.950±0.018
+0.941±0.023
+0.955±0.020
+0.949±0.003
+0.925±0.000
+0.958±0.011
+0.959±0.012
+0.961±0.012
+0.964±0.010
+0.961±0.011
+PLR-D10
+0.959±0.011
+0.957±0.009
+0.960±0.008
+0.955±0.010
+0.933±0.000
+0.963±0.013
+0.970±0.023
+0.972±0.014
+0.977±0.009
+0.973±0.009
+Mean
+0.957±0.010
+0.955±0.011
+0.955±0.008
+0.958±0.004
+0.957±0.001
+0.970±0.011
+0.958±0.009
+0.957 ±0.009
+0.974±0.007
+0.972±0.006
+Table 3: The average AUCs ± one deviation on dataset D3
+polynomial−3 and D5
+polynomial−3
+using diﬀerent machine learning algorithms.
+n=3
+n=5
+Training size
+0.5
+0.6
+0.7
+0.8
+0.9
+0.5
+0.6
+0.7
+0.8
+0.9
+NN-MCDA-D1
+0.753±0.018
+0.750±0.023
+0.753±0.021
+0.748±0.010
+0.745±0.008
+0.812±0.021
+0.828±0.038
+0.818±0.029
+0.810±0.021
+0.824±0.015
+NN-MCDA-D2
+0.772±0.024
+0.769±0.021
+0.774±0.012
+0.764±0.008
+0.766±0.009
+0.841±0.023
+0.838±0.033
+0.843±0.021
+0.840±0.019
+0.837±0.021
+NN-MCDA-D3
+0.773±0.026
+0.771±0.020
+0.775±0.021
+0.765±0.011
+0.767±0.011
+0.844±0.031
+0.846±0.052
+0.853±0.041
+0.847±0.037
+0.841±0.031
+NN-MCDA-D5
+0.772±0.018
+0.772±0.019
+0.776±0.015
+0.768±0.011
+0.769±0.008
+0.849±0.029
+0.853±0.027
+0.856±0.039
+0.851±0.015
+0.847±0.011
+NN-MCDA-D10
+0.775±0.020
+0.775±0.021
+0.778±0.012
+0.769±0.010
+0.773±0.006
+0.854±0.032
+0.853±0.052
+0.861±0.025
+0.856±0.030
+0.849±0.028
+MLP-D1
+0.787±0.010
+0.793±0.002
+0.790±0.001
+0.791±0.003
+0.800±0.004
+0.837±0.002
+0.835±0.001
+0.831±0.002
+0.836±0.001
+0.833±0.011
+MLP-D2
+0.790±0.005
+0.793±0.001
+0.792±0.003
+0.797±0.002
+0.802±0.008
+0.848±0.001
+0.851±0.003
+0.845±0.004
+0.849±0.010
+0.847±0.008
+MLP-D3
+0.791±0.002
+0.799±0.002
+0.799±0.001
+0.801±0.002
+0.808±0.002
+0.855±0.004
+0.855±0.001
+0.851±0.000
+0.855±0.000
+0.857±0.000
+MLP-D5
+0.793±0.001
+0.806±0.003
+0.801±0.002
+0.805±0.001
+0.810±0.006
+0.861±0.002
+0.856±0.001
+0.854±0.003
+0.861±0.001
+0.860±0.001
+MLP-D10
+0.795±0.001
+0.810±0.002
+0.804±0.004
+0.810±0.003
+0.811±0.009
+0.866±0.004
+0.864±0.001
+0.865±0.000
+0.862±0.001
+0.862±0.000
+SVM-Linear
+0.687±0.004
+0.683±0.004
+0.686±0.004
+0.681±0.006
+0.678±0.001
+0.748±0.003
+0.748±0.003
+0.755±0.003
+0.748±0.007
+0.743±0.007
+SVM-RBF
+0.688±0.003
+0.685±0.003
+0.686±0.007
+0.682±0.005
+0.680±0.000
+0.748±0.003
+0.748±0.002
+0.755±0.003
+0.748±0.004
+0.743±0.006
+SVM-D3poly
+0.682±0.004
+0.680±0.003
+0.687±0.006
+0.682±0.005
+0.676±0.000
+0.750±0.002
+0.749±0.003
+0.756±0.005
+0.752±0.004
+0.749±0.008
+GAM-D3
+0.687±0.002
+0.684±0.001
+0.688±0.002
+0.681±0.001
+0.681±0.001
+0.749±0.011
+0.746±0.006
+0.752±0.008
+0.750±0.007
+0.742±0.003
+GAM-D10
+0.687±0.004
+0.684±0.006
+0.687±0.009
+0.681±0.001
+0.680±0.002
+0.749±0.010
+0.746±0.010
+0.752±0.012
+0.749±0.011
+0.741±0.009
+DeciTr-MaxDep6
+0.685±0.003
+0.678±0.003
+0.682±0.004
+0.679±0.007
+0.676±0.006
+0.724±0.003
+0.725±0.002
+0.734±0.005
+0.736±0.006
+0.725±0.009
+DeciTr-MaxDep10
+0.672±0.002
+0.669±0.004
+0.672±0.003
+0.663±0.007
+0.665±0.006
+0.717±0.002
+0.719±0.002
+0.721±0.004
+0.722±0.002
+0.722±0.008
+DeciTr-MaxDep20
+0.617±0.003
+0.623±0.002
+0.620±0.005
+0.621±0.009
+0.630±0.008
+0.666±0.003
+0.663±0.004
+0.672±0.003
+0.671±0.005
+0.665±0.009
+PLR-D1
+0.604±0.011
+0.609±0.021
+0.611±0.014
+0.603±0.011
+0.610±0.003
+0.703±0.039
+0.698±0.010
+0.700±0.019
+0.702±0.010
+0.708±0.017
+PLR-D2
+0.621±0.013
+0.632±0.018
+0.639±0.013
+0.625±0.010
+0.621±0.010
+0.712±0.010
+0.702±0.018
+0.710±0.010
+0.711±0.015
+0.713±0.029
+PLR-D3
+0.638±0.021
+0.644±0.020
+0.640±0.009
+0.637±0.009
+0.635±0.010
+0.730±0.011
+0.729±0.021
+0.721±0.014
+0.729±0.029
+0.720±0.018
+PLR-D5
+0.651±0.017
+0.657±0.017
+0.649±0.019
+0.650±0.011
+0.650±0.011
+0.733±0.011
+0.735±0.013
+0.729±0.020
+0.734±0.016
+0.736±0.019
+PLR-D10
+0.669±0.009
+0.667±0.007
+0.670±0.011
+0.669±0.011
+0.668±0.008
+0.739±0.021
+0.739±0.023
+0.732±0.009
+0.741±0.009
+0.739±0.014
+Mean
+0.713±0.010
+0.708±0.010
+0.713±0.009
+0.712± 0.006
+0.713±0.006
+0.780±0.009
+0.779±0.014
+0.781±0.012
+0.775±0.009
+0.778±0.012
+We also compare the proposed NN-MCDA with baseline machine learning
+models, including the standard MLP, polynomial linear regression (PLR) with
+1, 2, 3, 5 and 10 degrees, GAM with 10 splines that are in 3 and 10 degree
+of polynomials, SVMs with linear, radial basis function (RBF) and polynomial
+kernels, and single decision tree (DeciTr) models with 6, 10 and 20 maximum
+depths.
+Table 2 presents the results for the simplest dataset.
+All machine
+learning models, both the interpretable (including NN-MCDA) and full com-
+plexity ones, perform well. The performance drops rapidly when we use them
+to ﬁt the nonlinear and high-order datasets (shown in Tables 3 and 4). Since
+17
+
+===== PAGE 18 =====
+Table 4: The average AUCs ± one deviation on dataset D3
+polynomial−15 and D5
+polynomial−15
+using diﬀerent machine learning algorithms.
+n=3
+n=5
+Training size
+0.5
+0.6
+0.7
+0.8
+0.9
+0.5
+0.6
+0.7
+0.8
+0.9
+NN-MCDA-D1
+0.607±0.010
+0.622±0.021
+0.591±0.009
+0.607±0.010
+0.612±0.010
+0.711±0.024
+0.721±0.032
+0.699±0.012
+0.708±0.017
+0.719±0.022
+NN-MCDA-D2
+0.643±0.008
+0.638±0.016
+0.643±0.012
+0.650±0.008
+0.635±0.010
+0.727±0.027
+0.723±0.029
+0.711±0.026
+0.711±0.016
+0.729±0.021
+NN-MCDA-D3
+0.653±0.023
+0.663±0.018
+0.657±0.019
+0.656±0.021
+0.659±0.013
+0.741±0.028
+0.739±0.043
+0.738±0.037
+0.726±0.029
+0.749±0.013
+NN-MCDA-D5
+0.678±0.019
+0.685±0.020
+0.676±0.005
+0.687±0.023
+0.670±0.009
+0.752±0.035
+0.758±0.039
+0.757±0.032
+0.735±0.035
+0.761±0.010
+NN-MCDA-D10
+0.690±0.023
+0.686±0.021
+0.683±0.004
+0.689±0.009
+0.674±0.006
+0.773±0.022
+0.761±0.048
+0.766±0.019
+0.771±0.029
+0.762±0.031
+MLP-D1
+0.710±0.001
+0.711±0.005
+0.710±0.000
+0.713±0.000
+0.712±0.001
+0.790±0.002
+0.787±0.004
+0.780±0.001
+0.779±0.002
+0.789±0.003
+MLP-D2
+0.713±0.003
+0.712±0.002
+0.714±0.002
+0.718±0.003
+0.715±0.002
+0.794±0.003
+0.790±0.003
+0.782±0.001
+0.783±0.002
+0.791±0.001
+MLP-D3
+0.719±0.004
+0.719±0.003
+0.720±0.001
+0.721±0.002
+0.719±0.003
+0.799±0.003
+0.794±0.002
+0.791±0.002
+0.788±0.001
+0.800±0.003
+MLP-D5
+0.721±0.002
+0.720±0.000
+0.724±0.003
+0.727±0.003
+0.725±0.004
+0.803±0.001
+0.799±0.005
+0.801±0.002
+0.794±0.003
+0.803±0.001
+MLP-D10
+0.728±0.003
+0.724±0.001
+0.729±0.002
+0.730±0.002
+0.729±0.003
+0.809±0.002
+0.803±0.001
+0.805±0.002
+0.806±0.003
+0.808±0.002
+SVM-Linear
+0.579±0.005
+0.579±0.002
+0.584±0.003
+0.572±0.005
+0.579±0.006
+0.658±0.003
+0.659±0.005
+0.649±0.004
+0.645±0.002
+0.658±0.005
+SVM-RBF
+0.586±0.003
+0.584±0.004
+0.586±0.002
+0.578±0.002
+0.589±0.005
+0.660±0.001
+0.661±0.002
+0.654±0.003
+0.648±0.003
+0.658±0.003
+SVM-D3poly
+0.574±0.002
+0.579±0.006
+0.580±0.006
+0.572±0.004
+0.579±0.005
+0.659±0.004
+0.662±0.002
+0.652±0.002
+0.647±0.002
+0.655±0.006
+GAM-D3
+0.579±0.001
+0.579±0.002
+0.584±0.003
+0.572±0.001
+0.576±0.003
+0.659±0.002
+0.659±0.004
+0.650±0.003
+0.647±0.005
+0.656±0.004
+GAM-D10
+0.583±0.001
+0.582±0.003
+0.585±0.003
+0.579±0.002
+0.583±0.005
+0.660±0.004
+0.659±0.003
+0.651±0.003
+0.645±0.002
+0.657±0.006
+DeciTr-MaxDep6
+0.583±0.003
+0.583±0.003
+0.583±0.003
+0.581±0.005
+0.589±0.009
+0.649±0.002
+0.650±0.001
+0.644±0.004
+0.638±0.005
+0.651±0.008
+DeciTr-MaxDep10
+0.565±0.004
+0.579±0.002
+0.574±0.004
+0.570±0.007
+0.562±0.008
+0.631±0.004
+0.635±0.003
+0.632±0.005
+0.628±0.006
+0.638±0.009
+DeciTr-MaxDep20
+0.536±0.005
+0.548±0.006
+0.539±0.004
+0.541±0.007
+0.547±0.008
+0.592±0.003
+0.583±0.004
+0.591±0.002
+0.588±0.008
+0.582±0.007
+PLR-D1
+0.560±0.015
+0.562±0.026
+0.558±0.021
+0.559±0.017
+0.557±0.011
+0.632±0.024
+0.630±0.017
+0.629±0.019
+0.631±0.022
+0.633±0.020
+PLR-D2
+0.562±0.014
+0.568±0.021
+0.560±0.020
+0.560±0.010
+0.562±0.017
+0.637±0.019
+0.631±0.021
+0.633±0.011
+0.633±0.017
+0.635±0.019
+PLR-D3
+0.569±0.010
+0.569±0.019
+0.564±0.019
+0.565±0.028
+0.563±0.028
+0.642±0.023
+0.637±0.019
+0.637±0.023
+0.639±0.028
+0.639±0.020
+PLR-D5
+0.571±0.014
+0.572±0.023
+0.569±0.020
+0.569±0.027
+0.569±0.027
+0.647±0.022
+0.642±0.020
+0.640±0.029
+0.641±0.018
+0.641±0.018
+PLR-D10
+0.578±0.015
+0.575±0.012
+0.572±0.023
+0.575±0.019
+0.573±0.019
+0.652±0.021
+0.649±0.011
+0.644±0.016
+0.645±0.019
+0.647±0.022
+Mean
+0.621±0.005
+0.623±0.010
+0.621±0.008
+0.621±0.005
+0.621±0.005
+0.699±0.012
+0.697±0.014
+0.693±0.011
+0.690±0.013
+0.698±0.011
+the proposed NN-MCDA model and MLP can model the nonlinearity and at-
+tribute interactions, both of them achieve much higher AUCs as compared to
+the rest. As expected, although the performance of NN-MCDA is lower than
+MLP, the diﬀerence is relatively small. Both NN-MCDA and MLP outperform
+other baseline machine learning models signiﬁcantly. More speciﬁcally, we can
+observe that GAM, SVM and DeciTr have similar accuracy, which is higher than
+that of PLR, but lower than NN-MCDA. NN-MCDA’s performance is close to
+the full complexity model, and at the same time, it preserves a certain degree
+of interpretability (will be shown in the next experiment).
+4.1.2. Experiment II: Impact of α on AUC
+In this section, we focus on assessing how the performance of the NN-MCDA
+model is aﬀected by the value of α, the weight for the linear component. We
+evenly sample 20 values within [0, 1] as the pre-deﬁned α. For each ﬁxed α, we
+train the NN-MCDA model using synthetic datasets introduced in the previous
+subsection.
+In this experiment, we use the SGD algorithm to optimize the
+parameters and the number of iterations are set as 250.
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Value of α
+0.70
+0.75
+0.80
+0.85
+0.90
+0.95
+1.00
+Averaged AUC
+AUC for traning set
+AUC for testing set
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Value of α
+0.80
+0.82
+0.84
+0.86
+0.88
+0.90
+0.92
+0.94
+0.96
+Averaged AUC
+AUC for traning set
+AUC for testing set
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Value of α
+0.65
+0.70
+0.75
+0.80
+0.85
+0.90
+Averaged AUC
+AUC for traning set
+AUC for testing set
+Figure 7: From the left to right, the impact of α on AUC using D3
+l , D5
+l , D10
+l , respectively.
+In Figure 7 (results with the linearly generated datasets), though three curves
+have many monotonicity inﬂexions, there is a general trend that the greater the
+18
+
+===== PAGE 19 =====
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Value of α
+0.765
+0.770
+0.775
+0.780
+0.785
+Averaged AUC
+AUC for traning set
+AUC for testing set
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Value of α
+0.840
+0.845
+0.850
+0.855
+0.860
+0.865
+0.870
+Averaged AUC
+AUC for traning set
+AUC for testing set
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Value of α
+0.76
+0.78
+0.80
+0.82
+0.84
+0.86
+0.88
+0.90
+Averaged AUC
+AUC for traning set
+AUC for testing set
+Figure 8: From the left to right, the impact of α on AUC using D3
+polynomial−3, D5
+polynomial−3,
+D10
+polynomial−3, respectively.
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Value of α
+0.66
+0.67
+0.68
+0.69
+0.70
+0.71
+0.72
+Averaged AUC
+AUC for traning set
+AUC for testing set
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Value of α
+0.62
+0.64
+0.66
+0.68
+0.70
+0.72
+Averaged AUC
+AUC for traning set
+AUC for testing set
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Value of α
+0.72
+0.74
+0.76
+0.78
+0.80
+Averaged AUC
+AUC for traning set
+AUC for testing set
+Figure
+9:
+From
+the
+left
+to
+right,
+the
+impact
+of
+α
+on
+AUC
+using
+D3
+polynomial−15, D5
+polynomial−15, D10
+polynomial−15, respectively.
+value of α, the better the performance. NN-MCDA obtains the best results when
+α is between 0.8 and 1.0 on these linearly generated datasets. In contrast, the
+AUC curves have a general decreasing trend when α increases for the nonlinearly
+generated datasets (Figures 8 and 9). In the extreme cases, where only the
+nonlinear MLP component (i.e., α = 0) or the linear component (i.e.,α = 1)
+works, the model obtains the greatest or smallest average AUC.
+Note that the three datasets have very diﬀerent patterns.
+Datasets Dn
+l
+use a set of simple linear marginal value functions whereas Dn
+polynomial−3 and
+Dn
+polynomial−15 simulate more complicated patterns. Theoretically, a full com-
+plexity model (MLP) can perfectly capture any patterns in the data at the cost
+of very large numbers of iterations and data samples for convergence. In prac-
+tice, we often do not have suﬃcient data or computational time to achieve the
+optimal MLP solution. In this simulation experiment (31,125 data points and
+250 iterations to ﬁt the model), a pure MLP model (NN-MCDA with α = 0)
+does not always lead to the best outcome. This result indicates that, in real-
+world managerial decision making, a full complexity model is usually not the
+best one not only because of the lack of interpretability, but also the limited
+data and computational resources to optimize the model. It is sensible to allow
+the model to automatically adjust the trade-oﬀcoeﬃcient α to avoid the sce-
+narios where a very complex model is used to ﬁt simple data, or a simple model
+is used to ﬁt complex data.
+19
+
+===== PAGE 20 =====
+4.1.3. Experiment III: performance in ﬁtting actual marginal value functions
+This experiment studies the ability of the NN-MCDA model to reconstruct
+the actual marginal value functions. From Experiments I and II, we ﬁnd that
+the NN-MCDA model with degree equal to 3 has a good balance between pre-
+diction performance and computational cost. Therefore, in this experiment, we
+generate four typical synthetic models with diﬀerent complexities. Each hypo-
+thetical model has three marginal value functions to estimate. Then, we use the
+synthetic models to generate datasets with the same attribute vectors (model in-
+put). We approximate the marginal value functions using an NN-MCDA model
+with a degree of 3. We also compare the obtained function with a baseline linear
+regression model. The four synthetic models (from the simplest to extremely
+complicated) are described as follows:
+• Synthetic model 1: Three linear marginal value functions.
+The global
+scores are the linear summation of three marginal values without interac-
+tions.
+• Synthetic model 2: Three polynomial functions of degree 3. The global
+scores are the linear summation of three marginal values with all possible
+pairwise interactions.
+• Synthetic model 3: A polynomial function of degree 15, a sigmoid function
+and an exponential function. The global scores are the linear summation
+of three marginal values without interactions.
+• Synthetic model 4: The Model 3 with pairwise and triple-wise attribute
+interactions.
+0.0
+0.5
+−0.4075
+−0.2717
+−0.1358
+Attribute 1 obtained by NN-MCDA
+Real function for Attribute 1
+0.0
+0.5
+0.000
+0.285
+0.570
+Attribute 2 obtained by NN-MCDA
+Real function for Attribute 2
+0.0
+0.5
+0.0000
+0.1463
+0.2925
+Attribute 3 obtained by NN-MCDA
+Real function for Attribute 3
+0.0
+0.5
+−0.4075
+−0.2717
+−0.1358
+Attribute 1 obtained by Linear Regre  ion
+Real function for Attribute 1
+0.0
+0.5
+0.000
+0.285
+0.570
+Attribute 2 obtained by Linear Regre  ion
+Real function for Attribute 2
+0.0
+0.5
+0.0000
+0.1463
+0.2925
+Attribute 3 obtained by Linear Regre  ion
+Real function for Attribute 3
+Figure 10: The simulated and actual marginal value functions in model 1.
+Figures 10 to 13 reveal the actual and ﬁtted marginal value functions ob-
+tained by the proposed NN-MCDA model and the baseline linear regression
+model.
+For a simple model with linear marginal value functions (Synthetic
+model 1), both the baseline linear regression model and the NN-MCDA can ﬁt
+the actual functions well. Both models successfully capture the monotonicity
+of the original marginal value functions. This indicates that the NN-MCDA
+20
+
+===== PAGE 21 =====
+0.0
+0.5
+−0.119
+0.579
+1.276
+Attribute 1 obtained by NN-MCDA
+Real function for Attribute 1
+0.0
+0.5
+−0.5853
+−0.3902
+−0.1951
+Attribute 2 obtained by NN-MCDA
+Real function for Attribute 2
+0.0
+0.5
+−0.0002
+0.3442
+0.6886
+Attribute 3 obtained by NN-MCDA
+Real function for Attribute 3
+0.0
+0.5
+−0.361
+0.417
+1.196
+Attribute 1 obtained by Linear Regre  ion
+Real function for Attribute 1
+0.0
+0.5
+−0.5601
+−0.3734
+−0.1867
+Attribute 2 obtained by Linear Regre  ion
+Real function for Attribute 2
+0.0
+0.5
+−0.2047
+0.2078
+0.6204
+Attribute 3 obtained by Linear Regre  ion
+Real function for Attribute 3
+Figure 11: The simulated and actual marginal value functions in model 2.
+0.0
+0.5
+0.0000
+0.3311
+0.6622
+Attribute 1 obtained by NN-MCDA
+Real function for Attribute 1
+0.0
+0.5
+−0.2892
+0.0149
+0.3190
+Attribute 2 obtained by NN-MCDA
+Real function for Attribute 2
+0.0
+0.5
+0.000
+0.573
+1.146
+Attribute 3 obtained by NN-MCDA
+Real function for Attribute 3
+0.0
+0.5
+0.0000
+0.3311
+0.6622
+Attribute 1 obtained by Linear Regression
+Real function for Attribute 1
+0.0
+0.5
+−0.2892
+0.1771
+0.6435
+Attribute 2 obtained by Linear Regre  ion
+Real function for Attribute 2
+0.0
+0.5
+0.000
+0.573
+1.146
+Attribute 3 obtained by Linear Regre  ion
+Real function for Attribute 3
+Figure 12: The simulated and actual marginal value functions in model 3.
+model is also applicable to simple prediction tasks that do not have attribute
+interactions or nonlinear associations between attributes and predictions.
+When the attribute interactions are considered (Synthetic model 2), the
+proposed model outperforms the baseline linear regression model. In the ﬁrst
+row of Figure 11, the NN-MCDA model captures correct monotonicity changes
+of all three actual marginal value functions. Moreover, for the ﬁrst and third
+attributes, it captures the concavity of the original functions.
+While linear
+regression model gives opposite monotonicity of the actual functions except
+for the second attribute.
+In addition, the linear regression model does not
+capture the concavity of the actual functions.
+The bad performance of the
+linear regression model is due to the fact that it can not capture the interactions
+between attributes, which often brings distorted interpretability.
+For the model with more complex marginal value functions (Synthetic model
+3), the linear regression model performs rather bad.
+In Figure 12, the ﬁrst
+and third attributes have very negligible impact on the prediction in the ﬁtted
+linear regression model. The NN-MCDA model, on the other hand, correctly
+captures the main characteristics of the three attributes. Both models failed to
+capture the inﬂexion point for the second attribute. These results demonstrate
+that a low-degree NN-MCDA model (3-degree in this study) can ﬁt both lower
+and higher degree marginal value functions, because of the nonlinear component
+helps deal with the complexities that cannot be captured by the predeﬁned linear
+21
+
+===== PAGE 22 =====
+0.0
+0.5
+0.0000
+0.3311
+0.6622
+Attribute 1 obtained by NN-MCDA
+Real function for Attribute 1
+0.0
+0.5
+−0.2892
+0.0149
+0.3190
+Attribute 2 obtained by NN-MCDA
+Real function for Attribute 2
+0.0
+0.5
+0.000
+0.573
+1.146
+Attribute 3 obtained by NN-MCDA
+Real function for Attribute 3
+0.0
+0.5
+−0.0926
+0.2694
+0.6313
+Attribute 1 obtained by Linear Regre  ion
+Real function for Attribute 1
+0.0
+0.5
+−0.289
+0.231
+0.751
+Attribute 2 obtained by Linear Regre  ion
+Real function for Attribute 2
+0.0
+0.5
+−0.091
+0.512
+1.115
+Attribute 3 obtained by Linear Regre  ion
+Real function for Attribute 3
+Figure 13: The simulated and actual marginal value functions in model 4.
+component. In Figure 13, if the marginal value function is extremely complex
+(Synthetic model 4), though low-degree NN-MCDA cannot fully capture the
+characteristics of the marginal value functions, it still outperforms the baseline
+linear regression model.
+However, the real-world decision making behaviors
+are usually not that complex (15-degree in Synthetics model 3 and 4).
+We
+will further validate the applicability and generalizability of the proposed NN-
+MCDA model with real datasets in the following section.
+4.2. A multiple criteria ranking problem.
+QS world university ranking organization5 provides ﬁve carefully-chosen in-
+dicators to measure the universities’ capacity in producing the most employable
+graduates, including employer reputation, employer-student connection, alumni
+outcomes, partnerships with employers and graduate employment rate.
+The
+metric of employer reputation, regarded as a key performance indicator, is based
+on over 40,000 responses to the QS Employer Survey. In this experiment, we
+apply the proposed NN-MCDA model to a multiple criteria ranking problem
+that predicts the employer reputation (human decision) using the other four
+quantitative indicators6. The descriptive statistics are shown in Table 5.
+5It is an annual publication of university rankings by Quacquarelli Symonds (QS). https:
+//www.topuniversities.com
+6Employer-student connection (EC). This indicator involves the number of active pres-
+ences of employers on a university’s campus over the past 12 months. Such presences are in
+form of providing students with opportunities to network and acquire information, organizing
+company presentations or other self-promoting activities, which increase the probability that
+students have to participate in career-launching internships and research opportunities.
+Alumni outcomes (AO). The scores based on the outcomes of a university’s graduates pro-
+duced. A university is successful if its graduates tend to produce more wealth and scientiﬁc
+researches.
+Partnerships with employers (PE). The number of citable and transformative researches
+which are produced by a university collaborating successfully with global companies.
+Graduate employment rate (GER). This indicator is essential for understanding how suc-
+cessful universities are at nurturing employability. It involves measuring the proportion of
+graduates (excluding those opting to pursue further study or unavailable to work) in full or
+part time employment within 12 months of graduation.
+22
+
+===== PAGE 23 =====
+Table 5: The descriptive statistics of data.
+Original data is normalized into [0, 1] in the
+following experiment.
+Mean
+Std Dev
+Minimum
+Maximum
+Employer-student connection
+74.63
+11.17
+44.80
+100.00
+Alumni outcomes
+55.25
+16.74
+26.40
+100.00
+Partnerships with employers
+73.27
+10.76
+46.10
+100.00
+Graduate employment rate
+77.88
+7.93
+54.00
+100.00
+There are
+ 250
+2
+
+pairwise comparisons among 250 universities. To determine
+the pre-deﬁned degree of polynomials, we respectively set Dj as 1, 2, and 3.
+We use the same ﬁvefold cross-validation process to ﬁt the model. We record
+the averaged AUC for both training and testing sets.
+We also select three
+baseline models, including a 3-layer MLP, a logistic regression model and a
+GAM. The results of the average AUC are presented in Table 6. For each pre-
+deﬁned degree, the full complexity model always obtain the best results whereas
+the logistic regression model performs the worst. Since NN-MCDA can model
+attribute interactions, it slightly outperforms the GAM. We depict the marginal
+value functions obtained by NN-MCDA, logistic regression model and GAM in
+Figures 14, 15 and 16, respectively.
+Table 6: Given polynomials of pre-deﬁned degree, the averaged AUC for training and testing
+sets. The value in parentheses is α when convergence. There are minor diﬀerences between
+averaged AUC when pre-deﬁned degrees are 2 and 3. Using polynomial of degree 2 is suﬃcient
+because more complex model does not signiﬁcantly increase AUC.
+NN-MCDA
+Logistic regression
+MLP
+GAM (5 splines)
+1-degree Training
+0.66 (0.8988)
+0.61 (1.00)
+0.71(0.00)
+0.64
+1-degree Testing
+0.64
+0.57
+0.70
+0.63
+2-degree Training
+0.69 (0.4969)
+0.64 (1.00)
+0.73 (0.00)
+0.67
+2-degree Testing
+0.68
+0.63
+0.71
+0.66
+3-degree Training
+0.69 (0.4351)
+0.65 (1.00)
+0.74 (0.00)
+0.68
+3-degree Testing
+0.68
+0.65
+0.73
+0.66
+0.0
+0.5
+0.00000
+0.03253
+0.06505
+Employer-student connection
+0.0
+0.5
+0.0000
+0.4728
+0.9456
+Alumni outcomes
+0.0
+0.5
+0.0000
+0.0645
+0.1289
+Partnerships with employers
+0.0
+0.5
+0.0000
+0.0765
+0.1529
+Graduate employment rate
+Figure 14: Marginal value functions obtained by NN-MCDA for the university data. We use
+polynomial functions of degree 2 to approximate the model.
+The black dashed line is the
+baseline rate satisfying p(ˆy = 1|x) = p(ˆy = 0|x) = 0.5. Same in following Figures.
+In Figures 14 and 15, the vertical axis is the individual attributes contribu-
+tions to employer reputation. For the attributes alumni outcomes, partnerships
+with employers and graduate employment rate, the value functions obtained
+23
+
+===== PAGE 24 =====
+0.0
+0.5
+−0.06774
+−0.04104
+−0.01434
+Attribute value is 97.24
+Employer-student connection
+0.0
+0.5
+0.0000
+0.4787
+0.9575
+Alumni outcomes
+0.0
+0.5
+0.0000
+0.2881
+0.5762
+Partnerships with employers
+0.0
+0.5
+0.00000
+0.03377
+0.06753
+Graduate employment rate
+Figure 15: Marginal value functions obtained by logistic regression model for the university
+data.
+−1.0 −0.5
+0.0
+0.5
+1.0
+−0.4
+−0.2
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Employer-student connection
+ 1.0 0.5
+0.0
+0.5
+1.0
+ 1.0
+ 0.5
+0.0
+0.5
+1.0
+1.5
+2.0
+Alumni outcomes
+ 1.0 0.5
+0.0
+0.5
+1.0
+ 2
+ 1
+0
+1
+2
+3
+4
+Partnerships with employers
+ 1.0 0.5
+0.0
+0.5
+1.0
+ 0.2
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Graduate employment rate
+Figure 16: Marginal value functions obtained by GAM with 5 splines that are in 2-degree
+polynomials for the university data. The red dashed lines are the 95% conﬁdence bands.
+by NN-MCDA and logistic regression model exhibit a monotonically increas-
+ing trend, which makes sense based on our common knowledge. For attribute
+employer-student connection, GAM obtains a generally increasing curve. Al-
+though it also captures a slight dip of the increasing trend for employer-student
+connectiongreater than 0.8, such eﬀect is not as clear as that in the curve cap-
+tured by NN-MCDA. For attributes alumni outcomes, partnerships with employ-
+ers and graduate employment rate, GAM obtains quite diﬀerent and unstable
+curves that are diﬃcult to explain.
+4.3. Predicting geriatric depression risk.
+Depression is a major cause of emotional suﬀering in later life. Geriatric
+depression reduces the quality of older adults’ life and increases the risk for ac-
+quiring other diseases and committing suicide (Alexopoulos, 2005). The existing
+literature empirically studied the risk factors of geriatric depression but few of
+them gave insight into how these risk factors aﬀect the prevalence of geriatric
+depression in details (i.e.: the shape of the marginal value functions). It is more
+managerially helpful for clinical decision making to prevent older adults from
+being depressed if we can understand how each risk factor inﬂuences the risk
+for depression at diﬀerent scales.
+The Health and Retirement Study (HRS) is a nationally representative lon-
+gitudinal study of US adults (Bugliari et al., 2016). It has been widely used
+in many medical studies because of its massive information about older adults
+demographics, health status, health care utilization and costs, and other useful
+variables (Pool et al., 2018). We sample the data in 2014 (N = 17, 696). In
+this experiment, given ﬁve pre-determined attributes (risk factors) that have
+24
+
+===== PAGE 25 =====
+been found to be associated with geriatric depression, we want to capture the
+detailed eﬀect of these risk factors at diﬀerent scales, which are represented by
+marginal value functions. The descriptive statistics are described in Table 77.
+Table 7: Descriptive statistics of variables used in experiment.
+Outcome
+Mean
+Std Dev
+Minimum
+Maximum
+Type
+Center for Epidemiologic Studies Depression (CES-D)
+1.52
+2.05
+0
+8
+Categ
+Variables
+Age in years (AGE)
+67.42
+10.99
+18
+104
+Cont
+Degree of education (EDU)
+12.83
+3.44
+0
+18
+Categ
+Marital status (MS)
+30.13
+18.19
+0
+74.2
+Cont
+Out-of-pocket expenditure (OPE)
+2,978.72
+7,696.11
+0
+232,255.46
+Cont
+Body mass index (BMI)
+28.24
+7.14
+0
+76.6
+Cont
+The respondents with CES-D scores higher than or equal to 1 are assumed
+to be at risk for depression (positive samples). There are totally 9,816 positive
+samples and 7,880 negative samples. We randomly choose 90% from both pos-
+itive and negative samples to train the model. We train the NN-MCDA, MLP,
+GAM, and logistic regression model for 30 times, and present the average results
+in Table 8. The obtained marginal value functions are visualized in Figures 17,
+18, and 19.
+Table 8: Averaged AUC and α for training and testing sets.
+Training set
+Testing set
+α
+NN-MCDA
+0.678
+0.669
+0.393
+Logistic Regression
+0.621
+0.593
+1
+MLP
+0.698
+0.668
+0
+GAM (5 splines)
+0.628
+0.613
+-
+We ﬁrst analyze the similar conclusions by three baseline interpretable mod-
+els. For the last four attributes, both NN-MCDA and logistic regression models
+capture similar monotonic trends. As for degree of education and marital status,
+7Center for Epidemiologic Studies Depression (CES-D) scale is a self-report measure of
+the frequency of 20 depressive symptoms during the past week (Radloﬀ, 1991). It is one of
+the most popular index assessing the risk for being depressed (Beardslee et al., 2013; Brent
+et al., 2015; Garber et al., 2009). Age in years at the end of the survey is calculated from
+the respondent birth date and beginning survey date. The samples vary from 18 to 104 but
+very few of them are within 18-45 and 93-104 years (Blazer et al., 1991; Mirowsky and Ross,
+1992). Degree of education is measured by the years of getting education. It is a categorical
+variable varying from 0 to 18. Note that for respondents whose degree of education is higher
+than 17 years, we set the degree of education as 18 (Ladin, 2008; Murrell et al., 1983). Marital
+status is represented by the length of the longest marriage that respondent ever had. It is a
+continuous variable and varies from 0 to 74.2 years (Pearlin and Johnson, 1977; Kessler and
+Essex, 1982; Penninx et al., 1998). Out-of-pocket expenditure refers to the expenses that the
+respondent pays directly to the health care provider without a third-party (insurer, or State).
+We consider the out-of-pocket medical expenditure in previous 2 years (Gadit, 2004). Body
+mass index is the weight divided by the square height Bugliari et al. (2016), which determines
+whether a respondent is overweight (Dong et al., 2004; Luppino et al., 2010; Ross, 1994).
+25
+
+===== PAGE 26 =====
+0.0
+0.5
+−0.0258
+0.0273
+0.0804
+Age i  71.58
+Age
+0.0
+0.5
+−0.2812
+−0.1875
+−0.0937
+Degree of education
+0.0
+0.5
+−0.2733
+−0.1822
+−0.0911
+Marital  tatu 
+0.0
+0.5
+0.000
+0.646
+1.292
+Out-of-pocket expenditure 
+0.0
+0.5
+0.0000
+0.3181
+0.6362
+Body mass index
+Figure 17: Marginal value functions obtained by NN-MCDA for the depression data. From
+the left to right, the attributes are age, degree of education, marital status, out-of-pocket
+expenditure, and BMI. We use polynomial functions of degree 3 to approximate the model.
+The black dashed line is the baseline rate satisfying p(ˆy = 1|x) = p(ˆy = 0|x) = 0.5. Same in
+following Figures.
+0.0
+0.5
+−0.02117
+−0.00912
+0.00293
+Age i  95.83
+Age
+0.0
+0.5
+−1.1305
+−0.7536
+−0.3768
+Degree of education
+0.0
+0.5
+−0.5232
+−0.3488
+−0.1744
+Marital  tatu 
+0.0
+0.5
+0.000
+0.813
+1.626
+Out-of-pocket expenditure 
+0.0
+0.5
+0.0000
+0.2715
+0.5430
+Body mass index
+Figure 18: Marginal value functions obtained by logistic regression model for the depression
+data.
+the curves are under the baseline rate indicating higher education and the longer
+length of marriage can reduce the risk for depression. This is consistent with the
+medical literature (Penninx et al., 1998; Ladin, 2008). More speciﬁcally, both
+models ﬁnd that the attributes out-of-pocket expenditure and Body mass index
+would increase the risk for depression. Since the obtained value functions are
+in a convex shape, the growth of the risk will increase along with the increase
+of these attribute values.
+Both the NN-MCDA and logistic regression obtain a convex curve for at-
+tribute age with part of the curve being negative and the rest being positive
+(see Figures 17 and 18). This indicates that the risk of depression does not
+increase while aging if the adult is younger than a threshold. The risk of de-
+pression increases fast after an adult passes an age threshold. The threshold
+for NN-MCDA is 71.58, which makes sense because most adults younger than
+71.58 could be enjoying their retirement and their body functions do not de-
+grade much. However, the threshold for the logistic regression is 95.83, which
+seems unrealistic and inconsistent with the literature (Blazer et al., 1991).
+Similar to the previous experiment, GAM obtains less stabler curves, which
+are relatively more diﬃcult to interpret. For attribute age, GAM obtains sim-
+ilar patterns as NN-MCDA and logistic regression models with an age thresh-
+old around 90, which is inconsistent with the literature (Blazer et al., 1991).
+For attributes degree of education and marital status, GAM even obtains quite
+counter-intuitive (if not wrong) results, indicating that the increase in educa-
+tional and marriage time results in the higher risk of depression.
+26
+
+===== PAGE 27 =====
+0.0
+0.5
+−2.0
+−1.5
+−1.0
+−0.5
+0.0
+0.5
+1.0
+1.5
+2.0
+Age
+0.0
+0.5
+−1.5
+−1.0
+−0.5
+0.0
+0.5
+1.0
+Degree of education
+0.0
+0.5
+−0.8
+−0.6
+−0.4
+−0.2
+0.0
+0.2
+0.4
+0.6
+0.8
+Marital status
+0.0
+0.5
+−4
+−2
+0
+2
+4
+6
+8
+10
+12
+14
+Out-of-pocket expenditure 
+0.0
+0.5
+−2.0
+−1.5
+−1.0
+−0.5
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+Body mass inde 
+Figure 19: Marginal value functions obtained by GAM with 5 splines that are in 3-degree
+polynomials for the depression data.
+4.4. Predicting the success of bank telemarketing.
+In this section, we employ a benchmark telemarketing datasets 8 to further
+verify the eﬃcacy of NN-MCDA. In this task, we aim to predict the success
+of selling bank long-term deposits by making telemarketing calls (Moro et al.,
+2014). After data preprocessing, there are 40,787 records and 48 attributes (11
+of them are numeric and the rest are binary). In this experiment, we focus on
+the contributions of 11 numeric attributes in the linear component, and import
+all attributes to the nonlinear component. We utilize the 3-degree polynomial
+functions and randomly choose 80% of data to train the NN-MCDA model for
+100 times. In addition to leading to comparable prediction performance (the
+averaged AUC is around 0.889), NN-MCDA can provide explicit marginal value
+functions to depict the detailed contributions of individual attributes.
+Figure 20 presents the normalized marginal value functions for all 11 nu-
+meric attributes.9 We ﬁnd that the marginal value function of the age indicates
+that when a client is younger than 55, he or she is less likely to buy long-
+term deposit. However, over the course of aging, the client tends to save for
+future costs. That implies that an experience DM (a telemarketing campaign
+manager) should target at older clients rather than younger ones. Another in-
+teresting pattern is about the Euribor rate. NN-MCDA shows that the Euribor
+rate is negatively associated with the probability for long-term deposit subscrip-
+tion, and such probability declines more quickly along with the increase of the
+Euribor rate. Consumer conﬁdence index (CCI) measures the consumers’ atti-
+tude towards the economy. The original value of the consumer conﬁdence index
+ranges from -50.8 to -26.9 indicating that the clients are pessimistic towards
+investments, and thus they may tend to purchase less long-term deposits and
+keep the cash. Nevertheless, while the CCI increases, the probability of long-
+term deposit subscription starts to increase as well because the clients becomes
+8The
+dataset
+is
+available
+on
+https://archive.ics.uci.edu/ml/datasets/Bank+
+Marketing.
+The descriptions about the attributes and data, please refer to the web-
+site.
+9duration: last contact duration; campaign: number of contacts performed during this
+campaign and for this client; pdays: number of days that passed by after the client was last
+contacted from a previous campaign; previous: number of contacts performed before this
+campaign and for this client.
+27
+
+===== PAGE 28 =====
+more conﬁdent in the economy. Similarly, we can interpret the marginal value
+functions for all variables. Such interpretability extends the DM’s understand-
+ing of the clients’ investment propensity, and could inform better telemarketing
+strategy.
+0.0
+0.5
+−0.0115
+0.0575
+0.1266
+age
+0.0
+0.5
+0.000
+0.797
+1.594
+duration
+0.0
+0.5
+−0.8403
+−0.5602
+−0.2801
+campaign
+0.0
+0.5
+−0.3152
+−0.2101
+−0.1051
+pdays
+0.0
+0.5
+0.0000
+0.2474
+0.4948
+previous
+0.0
+0.5
+−0.42
+−0.28
+−0.14
+employment variation rate
+0.0
+0.5
+−0.13835
+−0.09224
+−0.04612
+consumer price index 
+0.0
+0.5
+−0.07471
+−0.04981
+−0.02490
+consumer confidence index
+0.0
+0.5
+−0.3294
+−0.2196
+−0.1098
+Euribor rate
+0.0
+0.5
+−0.3965
+−0.2644
+−0.1322
+number of emplo ees
+0.0
+0.5
+−0.10749
+−0.07166
+−0.03583
+education
+Figure 20: Marginal value functions obtained by NN-MCDA for the telemarketing data.
+The experiments with real data demonstrate that the proposed NN-MCDA
+can eﬀectively capture the patterns in human decision making through learning
+the marginal value functions, which characterize the contribution of individ-
+ual attributes to the predictions. The NN-MCDA presents good potential in
+enhancing the empirical studies through providing a detailed marginal value
+function instead of a single coeﬃcient for each attribute. Moreover, the pre-
+diction performance of NN-MCDA is close to a full complexity model (MLP),
+and much better than that of baseline interpretable models (GAM and logis-
+tic regression model).
+This ﬁnding is further veriﬁed through comparing its
+performance with that reported in the literature.
+5. Discussion
+In this section, we summarize the insights from the experiments, discuss the
+use and extension of the proposed NN-MCDA model, and compare the proposed
+NN-MCDA with ensemble learning.
+5.1. Attribute importance.
+To explain the importance of each attribute, we present the normalized at-
+tribute weights obtained from previous experiments in Figure 21. In the uni-
+versity ranking problem, NN-MCDA assigns 0.2732, 0.228, 0.258, and 0.239
+28
+
+===== PAGE 29 =====
+to attributes employer-student connection, alumni outcomes, partnerships with
+employers and graduate employment rate whereas a regression model assigns
+0.3198, 0.3107, 0.1906, and 0.1789 to them, respectively. Both models determine
+that employer-student connection is the most important attribute, however, they
+give diﬀerent orders of other three attributes. Given the limited resources and
+the obtained importances of attributes, maintaining a good employer-student
+connection with frequent employer presences on campus is the most eﬀective
+method to achieve good employer reputation of a university.
+EC
+AO
+PE
+GER
+EC
+AO
+PE
+GER
+AGE
+EDU
+MS
+OPE
+BMI
+AGE
+EDU
+MS
+OPE
+BMI
+Figure 21: Normalized attribute weights in univerisity employee reputation ranking and geri-
+atric depression prediction. The inner circles are normalized attribute weights that are ob-
+tained by linear regression model and the outer ones are obtained by NN-MCDA.
+As for the depression prediction problem, a regression model assigns almost
+equal importance to the ﬁve attributes, which is not intuitive for the DM. On the
+other hand, the NN-MCDA provides a an order of the attributes according to the
+importance: BMI ∼OPE ≻MS ∼EDU ≻AGE (0.221, 0.218, 0.208, 0.198,
+0.155). Such order suggests that obesity and loads of expenditure are the most
+important risk factors of becoming depressed. While estimating an old adult’s
+risk for depression, a DM (general physician, specialists and geriatricians) should
+prioritize the problems related to the older adult’s body weight and economical
+conditions.
+5.2. Interpreting the trade-oﬀcoeﬃcient.
+As a key coeﬃcient, determining the value of α is important to practical
+applications. It reﬂects the inﬂuence of high-order interactions and complex
+nonlinearity of variables on the ﬁnal decisions. In this regard, the NN-MCDA
+model can be used to explore the complexity of the learning problem. If the
+convergence α is very small, it indicates that the data is highly complex and the
+assumption of preference independence is not valid. The DM should then use
+latest models that account for attribute interactions, such as a Choquet integral-
+based model (Aggarwal and Fallah Tehrani, 2019) or full complexity machine
+learning models. On the contrary, if α is close to 1, the DM is recommended to
+use a simpler model to avoid massive computational time and non-interpretable
+results.
+In the case of prediction for depression (Table 8), the convergence α is around
+0.4.
+It indicates that the involved attributes are possibly interacted in this
+29
+
+===== PAGE 30 =====
+problem.
+Some related medical studies also empirically demonstrated some
+interactions between attributes, for example, older adults that are relatively
+young with higher degree of education may be involved in more social activities
+and have a more contented life, which lead to lower risk for depression (Li
+et al., 2014).
+Moreover, these older adults with longer marriage will obtain
+more family support and thus they have lower risk for depression (Pearlin and
+Johnson, 1977). We usually address the pairwise interactions because they are
+easier to interpret and can be visualized by a heating map (Caruana et al., 2015).
+Given convergence α and marginal value functions obtained in the presence of
+high-order correlations among attributes, we could develop algorithms to use
+lower-ordered attribute interactions, e.g.: pairwise and triple-wise interactions,
+to approximate the higher ones. The framework can then be extended to a two-
+step procedures, including determining marginal value functions and deducing
+possible lower-ordered correlations.
+5.3. Extending the NN-MCDA framework.
+The proposed NN-MCDA presents a general modelling framework, which
+can be easily extended to enhance the performance and adaptivity for various
+problems. In this section, we discuss the three extensions, including adding reg-
+ularizations replacing the model in the nonlinear component, and incorporating
+attributes in the nonlinear component.
+5.3.1. Adding regularizations
+For some mission-critical cases where the data is complex, the convergence
+α could be very small. However, the DM still requires certain level of model
+interpretability to facilitate their decision making. Therefore, we opt for adding
+a regularization term to prevent the model from being too complicated and non-
+interpretable. The inclusion of the regularization term also helps prevent the
+over-ﬁtting problem. For example, we can revise the original MSE as follows
+MSE1 = MSE+(1−α)2. The added regularization term (1−α)2 allocates more
+weight to the linear component at the cost of lower ﬁtting accuracy. We can also
+change the regularization term to (2α −1)2, which leads to a balanced model
+that favors a model with equal weights to the linear and nonlinear components.
+The exact form of the loss function should be selected according to the problem
+settings.
+5.3.2. Replace the model in the nonlinear component.
+Given diﬀerent types of datasets, the proposed NN-MCDA model can be
+modiﬁed by replacing the neural networks in the nonlinear component by other
+network structures. In subsection 4.1.1, NN-MCDA has diﬃculty in handling
+extremely complex data (Dn
+polynomial−3 and Dn
+polynomial−15). To improve the
+performance on this data, we can introduce more layers in the MLP or increase
+the number of neurons in each layer.
+For image classiﬁcation problem, we
+can replace the MLP with a convolutional neural network (CNN), and use the
+features obtained from CNN as the input for the linear component.
+To ﬁt
+30
+
+===== PAGE 31 =====
+time-series or free text data, we can replace the MLP with a recurrent neural
+network.
+In addition, the proposed model can be progressively modiﬁed by iteratively
+interacting with the DM. We provide a user-interactive process to determine the
+ultimate model. The framework is shown in Figure 22 and explained as follows:
+Step 1. We ﬁrst apply the NN-MCDA model to the management problem. While
+the model converges, we obtain the value of α.
+Step 2. If α > 0.1, go to step 3. If α ≤0.1, which indicates that the data are
+potentially very complex. We opt for a full complexity black-box model
+to achieve higher accuracy and present the results to the DM. If the DM
+agrees to use the black-box model, the process is end. Otherwise, we add
+a regularization term (e.g.: use MSE1) to the original NN-MCDA, and
+go back to Step 1.
+Step 3. If α < 0.9, go to step 4. If α ≥0.9, which indicates that a simple additive
+model is suﬃcient to ﬁt the data, we explain the results to the DM. If
+the DM is satisﬁed with the accuracy, the process ends. Otherwise, we
+can modify the NN-MCDA model by increasing the complexity of the
+nonlinear component (e.g.: using deeper MLP or other neural net-based
+model). Then, we go back to Step 1.
+Step 4. If 0.1 < α < 0.9, we present the underlying model and results to the DM.
+If there are no further requirements, the process is end. If the DM requires
+further modiﬁcations (such as adding regularization terms or modifying
+the nonlinear component), we modify the model accordingly and then go
+to Step 1.
+Use black-box 
+model, present 
+results
+α≤0.1?
+Decision 
+maker 
+agrees?
+Add a 
+regularization 
+term/modification
+α≥0.9?
+Use linear 
+model, present 
+results
+Check the 
+model, present 
+results
+Apply 
+NN-MCDA
+Present 
+final results
+NO
+NO
+YES
+YES
+YES
+NO
+Figure 22: A heuristic user-interactive process for modifying the proposed NN-MCDA.
+5.3.3. Flexible inclusion of attributes in the nonlinear component
+In practice, the human decision making usually focuses on a small number of
+key attributes/criteria (Ribeiro et al., 2016). However, there could exist other
+31
+
+===== PAGE 32 =====
+minor attributes that do not directly contribute to the prediction, but could
+aﬀect the prediction through non-traceable complex interactions with other at-
+tributes (for example, the interaction between the nonlinear transformation of
+an attribute and the nonlinear transformation of ﬁve other attributes). These
+minor attributes can be incorporated by the nonlinear component.
+Output Unit
+Linear 
+Component
+Nonlinear 
+Component
+Input Layer
+Input Data
+……
+Figure 23: A new framework for NN-MCDA considering more attributes in the nonlinear
+component.
+In the geriatric depression experiment, the gender of an older adult may not
+directly indicate a diﬀerence in the risk for depression, however, it might still
+inﬂuence the prediction through complex interactions with other attributes.
+We further extend the NN-MCDA model in incorporate gender and smoking
+status into the nonlinear component (as shown in Figure 23). We ﬁnd that
+the incorporation of these attributes indeed improves the prediction accuracy
+(the AUC for testing set increases from 0.669 to 0.675), while still maintains
+the similar marginal value functions in the linear component (see Figure 24). If
+we add two more attributes, for instance whether the respondent received any
+home cares in last two years and whether the health problem limited his/her
+work, the AUC increases more obviously (from 0.675 to 0.708) and the marginal
+value functions still provide convincing results (see Figure 25).
+5.4. Joint training process.
+In the NN-MCDA model, the linear and nonlinear components are combined
+by a trade-oﬀcoeﬃcient α. Their sum is then fed to a common logistic function
+for a joint training process. Note that this joint training process is diﬀerent from
+ensemble learning (Cheng et al., 2016), in which multiple classiﬁers are trained
+individually and their predictions are simply combined after every model is
+32
+
+===== PAGE 33 =====
+0.0
+0.5
+0.0000
+0.1217
+0.2434
+Age
+0.0
+0.5
+−1.0405
+−0.6937
+−0.3468
+Degree of education
+0.0
+0.5
+−0.9991
+−0.6661
+−0.3330
+Marital  tatu 
+0.0
+0.5
+0.0000
+0.3317
+0.6634
+Out-of-pocket expenditure 
+0.0
+0.5
+−0.0222
+0.0836
+0.1895
+Body ma   index
+Figure 24: For depression data, the marginal value function obtained by linear component
+while adding two more attributes to the nonlinear component.
+0.0
+0.5
+−0.0120
+0.0411
+0.0941
+Attribute value is 61.3
+Age
+0.0
+0.5
+−1.2543
+−0.8362
+−0.4181
+Deg ee of education
+0.0
+0.5
+−0.3061
+−0.2041
+−0.1020
+Ma ital status
+0.0
+0.5
+−0.0558
+0.2096
+0.4750
+Out-of-pocket expenditure 
+0.0
+0.5
+0.0000
+0.3544
+0.7088
+Body mass index
+Figure 25: For depression data, the marginal value function obtained by linear component
+while adding four more attributes to the nonlinear component.
+optimized separately. For example, an ensemble learning approach could have
+a linear logistic regression model and an MLP model to make predictions for
+the same dataset separately, and then integrate the prediction results of the
+two models. The joint training process indicates that the linear and nonlinear
+components are connected. While we tune the parameters in one component,
+the other component will be aﬀected. If the model is at its global optimal, the
+predictions can be made.
+6. Conclusion and future work.
+In this paper, we proposed a framework for a novel hybrid machine learning
+model, namely the NN-MCDA, which combines traditional MCDA model and
+neural networks. MCDA uses marginal value functions to describe the explicit
+contribution of individual attributes to the predictions, while neural network
+considers the implicit high-order interrelations among attributes. The frame-
+work automatically balances the trade-oﬀbetween two components. NN-MCDA
+is more interpretable than a full complexity model and maintains similar pre-
+dictability.
+We present simulation experiments to demonstrate the eﬀectiveness of NN-
+MCDA. The experiments show that (1) polynomial of higher degrees do not
+always improve on accuracy; (2) There is a trade-oﬀbetween the interpretabil-
+ity and the predictability of the model. NN-MCDA can achieve a good bal-
+ance between them; (3) Given simple data, NN-MCDA performs as good as
+interpretable model, while given more complex data, NN-MCDA outperforms
+an interpretable model. We also present how to apply the NN-MCDA frame-
+work to real-world decision making problems. These experiments with real data
+33
+
+===== PAGE 34 =====
+demonstrate the good prediction performance of NN-MCDA and its ability in
+capturing the detailed contributions of individual attributes.
+We envisage the following directions for future researches based on the NN-
+MCDA framework. First, we can further enhance the interpretability of the
+model through proposing algorithms to approximate the attribute interactions
+after obtaining the marginal value functions. Second, further studies are needed
+to validate the eﬀectiveness of the NN-MCDA variants that introduced in the
+discussion section. Last, but not the least, applying the proposed framework
+to a variety of real-world decision making and prediction problems constitutes
+another interesting direction for future work.
+Appendix A. Proof of Proposition 1
+Proof. Assume the activation function has the following linear form al(x) =
+AT
+l x + b′
+l. The output of the l-th layer is
+zl(x) = al(WT
+l zl−1 + bl) = AT
+l (WT
+l zl−1 + bl) + b′
+l
+(A.1)
+= (WlAl)T zl−1 + (AT
+l bl + b′
+l)
+(A.2)
+leading to a linear combination at each unit.
+The global value of the i-th
+attribute vector is
+U(xi) = αzlinear
+i
++ (1 −α)znonlinear
+i
+(A.3)
+= αwT Pi + (1 −α)hT ((WL−1WL−2 . . . W1A1 . . . AL−1)T Φ(xi) + b)
+(A.4)
+is apparently in an additive form.
+Appendix B. Proof of Proposition 2
+Proof. Without loss of generality, assume the activation function is a sigmoid
+function. When L = 1, assume there are K1 units in the ﬁrst layer and the
+output of k-th unit in the nonlinear component is zk
+1(xi) = σ(wT
+k xi + bk). The
+output of this layer is
+znonlinear
+i
+=
+XK1
+k=1 hkσ
+ wk
+1xi + bk
+1
+
+(B.1)
+= f(xi,1, xi,2, . . . , xi,n)
+(B.2)
+where f(xi,1, xi,2, . . . , xi,n) is a function of each attribute value. For example,
+when K1 = 2, we have
+f(xi,1, . . . , xi,n) =
+h1 + h2 + h2e−(wT
+1 xi+b1) + h1e−(wT
+2 xi+b2)
+1 + e−(wT
+1 xi+b1) + e−(wT
+2 xi+b2) + e−(wT
+1 xi+wT
+2 xi+b1+b2)
+(B.3)
+34
+
+===== PAGE 35 =====
+where wT
+k xi = Pn
+j=1 wj
+kxi,j and k = {1, 2}. When L ≥2, let f k
+l−1(xi,1, . . . , xi,n)
+be the output of the k-th unit in the previous layer. We have
+inputu
+2 =
+XK1
+k=1 wu,k
+1
+f k
+1 (xi,1, . . . xi,n),
+(B.4)
+outputu
+2 = σ (inputu
+2) = f u
+2
+
+f 1
+1 (xi,1, . . . xi,n) , . . . f K1
+1
+(xi,1, . . . xi,n)
+
+(B.5)
+...
+outputu
+L = f u
+L(f 1
+L−1
+
+· · · f K2
+2
+
+f 1
+1 (xi,1, . . . xi,n) , . . . f K1
+1
+(xi,1, . . . xi,n)
+
+,
+(B.6)
+f 2
+L−1 (· · · ) , . . . , f KL−1
+L−1
+(· · · )),
+znonlinear
+i
+=
+XKL
+u=1 huoutputu
+L,
+(B.7)
+where inputu
+l is the input of the u-th unit at the l-th layer. The form of Eq.(B.6)
+is complex and it is diﬃcult to simulate its explicit form. Apparently, there are
+higher-order transformations of attribute interactions, which are more compli-
+cated than the forms in Eq.(B.2).
+References
+Aggarwal, M., Fallah Tehrani, A., 2019. Modelling human decision behaviour
+with preference learning. INFORMS Journal on Computing 31, 318–334.
+Alexopoulos, G.S., 2005. Depression in the elderly. The Lancet 365, 1961–1970.
+Angilella, S., Corrente, S., Greco, S., S lowi´nski, R., 2014. MUSA-INT: Mul-
+ticriteria customer satisfaction analysis with interacting criteria. Omega 42,
+189–200.
+Angilella, S., Greco, S., Matarazzo, B., 2010. Non-additive robust ordinal re-
+gression: A multiple criteria decision model based on the Choquet integral.
+European Journal of Operational Research 201, 277–288.
+Baesens, B., Setiono, R., Mues, C., Vanthienen, J., 2003. Using neural network
+rule extraction and decision tables for credit-risk evaluation. Management
+Science 49, 312–329.
+Barbati, M., Greco, S., Kadzi´nski, M., S lowi´nski, R., 2018. Optimization of
+multiple satisfaction levels in portfolio decision analysis. Omega 78, 192–204.
+Beardslee, W.R., Brent, D.A., Weersing, V.R., Clarke, G.N., Porta, G., Hollon,
+S.D., Gladstone, T.R., Gallop, R., Lynch, F.L., Iyengar, S., et al., 2013.
+Prevention of depression in at-risk adolescents: Longer-term eﬀects. JAMA
+Psychiatry 70, 1161–1170.
+35
+
+===== PAGE 36 =====
+Blazer, D., Burchett, B., Service, C., George, L.K., 1991. The association of age
+and depression among the elderly: An epidemiologic exploration. Journal of
+Gerontology 46, M210–M215.
+Brent, D.A., Brunwasser, S.M., Hollon, S.D., Weersing, V.R., Clarke, G.N.,
+Dickerson, J.F., Beardslee, W.R., Gladstone, T.R., Porta, G., Lynch, F.L.,
+et al., 2015. Eﬀect of a cognitive-behavioral prevention program on depression
+6 years after implementation among at-risk adolescents: A randomized clinical
+trial. JAMA Psychiatry 72, 1110–1118.
+Bugliari, D., Campbell, N., Chan, C., Hayden, O., Hurd, M., Main, R., Mallett,
+J., McCullough, C., Meijer, E., Moldoﬀ, M., et al., 2016. RAND HRS data
+documentation, version P. RAND Center for the Study of Aging .
+Caruana, R., Lou, Y., Gehrke, J., Koch, P., Sturm, M., Elhadad, N., 2015.
+Intelligible models for healthcare: Predicting pneumonia risk and hospital
+30-day readmission, in: Proceedings of the 21th ACM SIGKDD International
+Conference on Knowledge Discovery and Data Mining, ACM. pp. 1721–1730.
+Cheng, H.T., Koc, L., Harmsen, J., Shaked, T., Chandra, T., Aradhye, H.,
+Anderson, G., Corrado, G., Chai, W., Ispir, M., et al., 2016. Wide and deep
+learning for recommender systems, in: Proceedings of the 1st Workshop on
+Deep Learning for Recommender Systems, ACM. pp. 7–10.
+Ciomek, K., Ferretti, V., Kadzi´nski, M., 2018. Predictive analytics and disused
+railways requaliﬁcation: Insights from a post factum analysis perspective.
+Decision Support Systems 105, 34–51.
+Corrente, S., Greco, S., Kadzi´nski, M., S lowi´nski, R., 2013.
+Robust ordinal
+regression in preference learning and ranking. Machine Learning 93, 381–422.
+Cortes, C., Vapnik, V., 1995. Support-vector networks. Machine Learning 20,
+273–297.
+Cui, D., Curry, D., 2005.
+Prediction in marketing using the support vector
+machine. Marketing Science 24, 595–615.
+Dong, C., Sanchez, L., Price, R., 2004. Relationship of obesity to depression:
+A family-based study. International Journal of Obesity 28, 790.
+Doumpos, M., Zopounidis, C., 2011. Preference disaggregation and statistical
+learning for multicriteria decision support: A review. European Journal of
+Operational Research 209, 203–214.
+Dyer, J.S., Fishburn, P.C., Steuer, R.E., Wallenius, J., Zionts, S., 1992. Multiple
+criteria decision making, multiattribute utility theory: The next ten years.
+Management Science 38, 645–654.
+Friedman, J.H., 2001.
+Greedy function approximation: A gradient boosting
+machine. Annals of Statistics , 1189–1232.
+36
+
+===== PAGE 37 =====
+Gadit, A.A., 2004. Out-of-pocket expenditure for depression among patients at-
+tending private community psychiatric clinics in Pakistan. Journal of Mental
+Health Policy and Economics 7, 23–28.
+Garber, J., Clarke, G.N., Weersing, V.R., Beardslee, W.R., Brent, D.A., Glad-
+stone, T.R., DeBar, L.L., Lynch, F.L., DAngelo, E., Hollon, S.D., et al., 2009.
+Prevention of depression in at-risk adolescents: A randomized controlled trial.
+JAMA 301, 2215–2224.
+Gartner, D., Kolisch, R., Neill, D.B., Padman, R., 2015.
+Machine learning
+approaches for early DRG classiﬁcation and resource allocation. INFORMS
+Journal on Computing 27, 718–734.
+Ghaderi, M., Ruiz, F., Agell, N., 2017. A linear programming approach for
+learning non-monotonic additive value functions in multiple criteria decision
+aiding. European Journal of Operational Research 259, 1073–1084.
+Glorot, X., Bordes, A., Bengio, Y., 2011. Deep sparse rectiﬁer neural networks,
+in: Proceedings of the 14th International Conference on Artiﬁcial Intelligence
+and Statistics, pp. 315–323.
+Greco, S., Mousseau, V., S lowi´nski, R., 2008.
+Ordinal regression revisited:
+Multiple criteria ranking using a set of additive value functions. European
+Journal of Operational Research 191, 416–436.
+Gunning, D., 2017. Explainable artiﬁcial intelligence (XAI). Defense Advanced
+Research Projects Agency (DARPA), nd Web URL: https://www.darpa.
+mil/attachments/XAIProgramUpdate.pdf.
+Guo, M., Liao, X., Liu, J., Zhang, Q., 2019. Consumer preference analysis: A
+data-driven multiple criteria approach integrating online information. Omega
+URL: https://doi.org/10.1016/j.omega.2019.05.010.
+Hasan, M., B¨uy¨uktahtakın, ˙I.E., Elamin, E., 2019.
+A multi-criteria ranking
+algorithm (mcra) for determining breast cancer therapy. Omega 82, 83–101.
+Hastie, T., Tibshirani, R., 1986. Generalized additive models. Statistical Science
+1, 297–318.
+Jacquet-Lagreze, E., Siskos, Y., 2001. Preference disaggregation: 20 years of
+MCDA experience. European Journal of Operational Research 130, 233–245.
+Kadzi´nski, M., Cinelli, M., Ciomek, K., Coles, S.R., Nadagouda, M.N., Varma,
+R.S., Kirwan, K., 2018. Co-constructive development of a green chemistry-
+based model for the assessment of nanoparticles synthesis. European Journal
+of Operational Research 264, 472–490.
+Keeney, R.L., 1976. A group preference axiomatization with cardinal utility.
+Management Science 23, 140–145.
+37
+
+===== PAGE 38 =====
+Kessler, R.C., Essex, M., 1982. Marital status and depression: The importance
+of coping resources. Social Forces 61, 484–507.
+Korhonen, P.J., Silvennoinen, K., Wallenius, J., ¨O¨orni, A., 2012. Can a linear
+value function explain choices? An experimental study. European Journal of
+Operational Research 219, 360–367.
+Kraus, M., Feuerriegel, S., 2019. Forecasting remaining useful life: Interpretable
+deep learning approach via variational bayesian inferences. Decision Support
+Systems 125, 113100.
+Ladin, K., 2008. Risk of late-life depression across 10 European Union countries:
+Deconstructing the education eﬀect. Journal of Aging and Health 20, 653–670.
+Le, Q.V., Ngiam, J., Coates, A., Lahiri, A., Prochnow, B., Ng, A.Y., 2011. On
+optimization methods for deep learning, in: Proceedings of the 28th Inter-
+national Conference on International Conference on Machine Learning, pp.
+265–272.
+LeCun, Y., Bengio, Y., Hinton, G., 2015. Deep learning. Nature 521, 436.
+Letham, B., Rudin, C., McCormick, T.H., Madigan, D., et al., 2015. Inter-
+pretable classiﬁers using rules and Bayesian analysis: Building a better stroke
+prediction model. The Annals of Applied Statistics 9, 1350–1371.
+Li, D., Zhang, D.j., Shao, J.j., Qi, X.d., Tian, L., 2014. A meta-analysis of
+the prevalence of depressive symptoms in Chinese older adults. Archives of
+Gerontology and Geriatrics 58, 1–9.
+Liu, J., Liao, X., Kadzi´nski, M., S lowi´nski, R., 2019. Preference disaggregation
+within the regularization framework for sorting problems with multiple po-
+tentially non-monotonic criteria. European Journal of Operational Research
+.
+Lou, Y., Caruana, R., Gehrke, J., 2012. Intelligible models for classiﬁcation
+and regression, in: Proceedings of the 18th ACM SIGKDD International
+Conference on Knowledge Discovery and Data Mining, ACM. pp. 150–158.
+Lou, Y., Caruana, R., Gehrke, J., Hooker, G., 2013. Accurate intelligible mod-
+els with pairwise interactions, in: Proceedings of the 19th ACM SIGKDD
+International Conference on Knowledge Discovery and Data Mining, ACM.
+pp. 623–631.
+Luppino, F.S., de Wit, L.M., Bouvy, P.F., Stijnen, T., Cuijpers, P., Penninx,
+B.W., Zitman, F.G., 2010. Overweight, obesity, and depression: A system-
+atic review and meta-analysis of longitudinal studies. Archives of General
+Psychiatry 67, 220–229.
+Miller, T., 2018. Explanation in artiﬁcial intelligence: Insights from the social
+sciences. Artiﬁcial Intelligence 267, 1–38.
+38
+
+===== PAGE 39 =====
+Mirowsky, J., Ross, C.E., 1992. Age and depression. Journal of Health and
+Social Behavior , 187–205.
+Moro, S., Cortez, P., Rita, P., 2014. A data-driven approach to predict the
+success of bank telemarketing. Decision Support Systems 62, 22–31.
+Murrell, S.A., Himmelfarb, S., Wright, K., 1983. Prevalence of depression and
+its correlates in older adults. American Journal of Epidemiology 117, 173–185.
+Pearlin, L.I., Johnson, J.S., 1977. Marital status, life-strains and depression.
+American Sociological Review , 704–715.
+Pelissari, R., Oliveira, M., Amor, S.B., Kandakoglu, A., Helleno, A., 2019.
+SMAA methods and their applications: A literature review and future re-
+search directions. Annals of Operations Research , 1–61.
+Penninx, B.W., Guralnik, J.M., Ferrucci, L., Simonsick, E.M., Deeg, D.J., Wal-
+lace, R.B., 1998. Depressive symptoms and physical decline in community-
+dwelling older persons. JAMA 279, 1720–1726.
+Pool, L.R., Burgard, S.A., Needham, B.L., Elliott, M.R., Langa, K.M., De Leon,
+C.F.M., 2018. Association of a negative wealth shock with all-cause mortality
+in middle-aged and older adults in the united states. JAMA 319, 1341–1350.
+Radloﬀ, L.S., 1991. The use of the Center for Epidemiologic Studies Depression
+Scale in adolescents and young adults. Journal of Youth and Adolescence 20,
+149–166.
+Rezaei, J., 2016. Best-worst multi-criteria decision-making method: Some prop-
+erties and a linear model. Omega 64, 126–130.
+Ribeiro, M.T., Singh, S., Guestrin, C., 2016. Why should I trust you? explaining
+the predictions of any classiﬁer, in: Proceedings of the 22nd ACM SIGKDD
+International Conference on Knowledge Discovery and Data Mining, ACM.
+pp. 1135–1144.
+Rosenblatt, F., 1958. The perceptron: A probabilistic model for information
+storage and organization in the brain. Psychological Review 65, 386.
+Ross, C.E., 1994. Overweight and depression. Journal of Health and Social
+Behavior , 63–79.
+Sobrie, O., Gillis, N., Mousseau, V., Pirlot, M., 2018. UTA-poly and UTA-
+splines: Additive value functions with polynomial marginals. European Jour-
+nal of Operational Research 264, 405–418.
+Stewart, T.J., 1992. A critical survey on the status of multiple criteria decision
+making theory and practice. Omega 20, 569–586.
+39
+
+===== PAGE 40 =====
+Stewart, T.J., 1993. Use of piecewise linear value functions in interactive mul-
+ticriteria decision support: A Monte Carlo study. Management Science 39,
+1369–1381.
+Wallenius, J., Dyer, J.S., Fishburn, P.C., Steuer, R.E., Zionts, S., Deb, K.,
+2008. Multiple criteria decision making, multiattribute utility theory: Recent
+accomplishments and what lies ahead. Management Science 54, 1336–1349.
+Zopounidis, C., Galariotis, E., Doumpos, M., Sarri, S., Andriosopoulos, K.,
+2015. Multiple criteria decision aiding for ﬁnance: An updated bibliographic
+survey. European Journal of Operational Research 247, 339–348.
+40

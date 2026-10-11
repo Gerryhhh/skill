@@ -1,0 +1,2600 @@
+
+===== PAGE 1 =====
+Preference Construction: A Bayesian Interactive
+Preference Elicitation Framework Based on Monte
+Carlo Tree Search
+Yan Wang
+Center for Intelligent Decision-making and Machine Learning, School of Management, Xi’an Jiaotong University, Xi’an 710049, Shaanxi, PR
+China
+wangyan som@stu.xjtu.edu.cn
+Jiapeng Liu*
+Center for Intelligent Decision-making and Machine Learning, School of Management, Xi’an Jiaotong University, Xi’an 710049, Shaanxi, PR
+China
+jiapengliu@mail.xjtu.edu.cn
+Milosz Kadziński
+Faculty of Computing and Telecommunications, Poznan University of Technology, Piotrowo 2, 60-965 Poznań, Poland
+milosz.kadzinski@cs.put.poznan.pl
+Xiuwu Liao
+Center for Intelligent Decision-making and Machine Learning, School of Management, Xi’an Jiaotong University, Xi’an 710049, Shaanxi, PR
+China
+liaoxiuwu@mail.xjtu.edu.cn
+Abstract. We present a novel preference learning framework to capture participant preferences efficiently within limited interaction
+rounds. It involves three main contributions. First, we develop a variational Bayesian approach to infer the participant’s preference
+model by estimating posterior distributions and managing uncertainty from limited information. Second, we propose an adaptive
+questioning policy that maximizes cumulative uncertainty reduction, formulating questioning as a finite Markov decision process
+and using Monte Carlo Tree Search to prioritize promising question trajectories. By considering long-term effects and leveraging
+the efficiency of the Bayesian approach, the policy avoids shortsightedness. Third, we apply the framework to Multiple Criteria
+Decision Aiding, with pairwise comparison as the preference information and an additive value function as the preference model. We
+integrate the reparameterization trick to address high-variance issues, enhancing robustness and efficiency. Computational studies on
+real-world and synthetic datasets demonstrate the framework’s practical usability, outperforming baselines in capturing preferences
+and achieving superior uncertainty reduction within limited interactions.
+Key words: preference learning, decision analysis, preference elicitation, variational Bayesian, Monte Carlo tree search
+1.
+Introduction
+Preferences are ubiquitous and become increasingly important in various fields of application. For
+example, training Artificial General Intelligence (AGI) models, such as OpenAI’s language models,
+integrates preferences using Reinforcement Learning from Human Feedback (RLHF) (Christiano
+et al. 2017) to refine the agent’s ability to follow instructions better, maintain factual accuracy,
+and avoid model hallucinations. Analogously, online streaming platforms, such as Netflix and
+Spotify, enhance the user experience by leveraging behavior data (including ratings and likes) to
+* Corresponding author
+1
+arXiv:2503.15150v1  [cs.LG]  19 Mar 2025
+
+===== PAGE 2 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+2
+analyze implicit preferences and subsequently recommend items that are more likely to engage
+them (Schedl et al. 2021). Other relevant applications span social link recommendation (Yin et al.
+(2023)), computational advertising (Li et al. (2024)), new product management (Cao and Zhang
+(2021)), and recommendation systems (Ran et al. (2023)). Understanding individual preferences
+underpins better decision-making.
+We focus on interactive preference construction problems, which broadly exist in many fields,
+such as multiple criteria decision aiding (Corrente et al. 2013, Greco et al. 2024), conjoint analysis
+in marketing (Dzyabura and Hauser 2011, Dew 2024), and personalized investment advising in
+finance (Hu et al. 2024). Such problems can be conceptualized as a sequential preference learning
+process (see Figure 1). In such an interactive process, participants (e.g., user, decision maker, or
+stakeholder) incrementally respond to posed questions (e.g., “Which alternative do you prefer?”).
+Their answers to these queries (e.g., “I prefer alternative A to alternative B”) in previous interactions
+serve as the preference information, which is exploited to guide the subsequent questions for eliciting
+the participants’ further preferences. The ultimate goal of the interactive process is to construct a
+preference model that can fully characterize their preferences.
+Figure 1
+Preference elicitation process.
+The interactive preference construction process must be efficient to prevent participant fatigue
+and disengagement (Wang and Benbasat 2013, Hogan et al. 2020). Therefore, the goal is to elicit the
+most informative preference data within a limited number of interactions. In this regard, two aspects
+
+===== PAGE 3 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+3
+are essential. First, preference information is gathered incrementally, requiring immediate inference
+of the underlying preference model after each interaction. Early stages face high uncertainty due
+to limited data, which can hinder the selection of subsequent informative questions if not managed
+effectively. Second, the questioning policy must adapt dynamically based on previous responses,
+leveraging the inferred preference model to maximize cumulative information gain. The selection
+and order of questions significantly impact the outcome. Since the process can be modeled as
+a decision tree, choosing optimal sub-trees becomes computationally challenging due to factorial
+growth in possibilities (Ciomek et al. 2017a). Efficient exploration of the search space is thus crucial
+for effective policy development.
+Extensive research highlights the importance of accurate and efficient interactive preference
+elicitation (Blum et al. 2004, Boutilier et al. 2006). Various approaches have been proposed to
+address challenges in this area. For preference model inference under uncertainty, one approach
+constructs models using polyhedral spaces defined by linear constraints from elicited informa-
+tion and employs Monte Carlo simulations to estimate the share of model instances supporting
+specific preferences (Kadziński and Tervonen 2013, Ciomek et al. 2017a,b). While effective for
+quantifying uncertainty, these methods are vulnerable to cognitive biases in participant responses,
+potentially excluding the true preference model (Delquié 1993, Ru et al. 2022). In designing ques-
+tioning policies, diverse heuristics adaptively select questions to maximize cumulative information
+gain (Boutilier et al. 2006, Kadziński and Ciomek 2021, Dzyabura and Hauser 2011). However,
+these heuristics often focus on immediate gains, neglecting long-term impacts and leading to myopic
+policies. Notable exceptions include Sauré and Vielma (2019), which uses dynamic programming
+to propose a one-step look-ahead policy addressing shortsightedness, and Ciomek et al. (2017a),
+which explores question-answer trees with adjustable search depths.
+This paper introduces a novel Bayesian interactive preference elicitation framework to effectively
+capture participant preferences within limited interaction rounds. Our major contributions are three-
+fold. First, we develop a variational Bayesian approach to infer preference models. By addressing
+the preference inference problem from a Bayesian perspective, we derive the posterior distribution
+of the model from accumulated preference data to manage uncertainty and mitigate cognitive
+biases. This way, we eliminate the risk of excluding the participant’s true preference model. Using
+variational inference (Murphy 2012), we accelerate the computations to under one second, enabling
+efficient search space exploration for adaptive questioning.
+
+===== PAGE 4 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+4
+Second, we propose an adaptive questioning policy designed to maximize cumulative uncer-
+tainty reduction. Framed as a finite Markov decision process (Sutton and Barto 2018), it employs
+Monte Carlo Tree Search (MCTS) (Browne et al. 2012) to explore the search space efficiently
+and prioritize promising question trajectories. The introduced policy benefits from the efficient
+variational Bayesian inference approach. Unlike the existing approaches, it avoids shortsightedness,
+considering the long-term impacts of decisions by accounting for the states likely to follow and the
+associated rewards. This way, it selects questions that significantly reduce estimation uncertainty.
+Third, we apply the framework to Multiple Criteria Decision Aiding (MCDA), which considers
+problems with alternatives evaluated on multiple criteria (Corrente et al. 2013). Working out a
+decision recommendation (e.g., ranking of alternatives) requires eliciting preference information
+from the DM, constructing a well-suited preference model, and applying it to the alternative
+set (Corrente et al. 2013). We use holistic pairwise comparisons as the preference information
+and an additive value function as the model. In such a setting, the proposed variational Bayesian
+preference inference approach may encounter high-variance issues that negatively impact the model
+construction. To address this challenge, we incorporate the reparameterization trick (Kingma and
+Welling 2022) from machine learning, improving robustness and efficiency in preference inference.
+Finally, computational studies validate the framework using real-world and synthetic MCDA
+datasets. We compare the performance of the proposed variational Bayesian inference approach
+with or without the reparameterization trick against the baseline approaches. Additionally, we
+investigate the ability of the proposed questioning policy and baseline heuristics to capture the
+DM’s holistic preferences within a limited number of interaction rounds.
+The remainder of the paper is organized in the following way. Section 2 presents the devel-
+oped Bayesian interactive preference elicitation framework based on Monte Carlo Tree Search for
+addressing preference construction problems. Section 3 illustrates the applicability of the proposed
+framework to the scenario of MCDA. Sections 4 and 5 investigate the performance of the variational
+Bayesian preference inference approach and the MCTS-based questioning policy through compu-
+tational experiments involving real-world and artificial datasets with different problem settings,
+respectively. The last section concludes the paper and provides avenues for future research.
+2.
+Bayesian Interactive Preference Elicitation Framework based on Monte Carlo
+Tree Search
+2.1.
+Problem Definition and Framework Outline
+We consider an interactive preference elicitation problem to comprehensively capture the partic-
+ipant’s preferences within a limited number (denoted by 𝑇) of interaction rounds. In each round,
+
+===== PAGE 5 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+5
+we present the participant with a pair of alternatives (𝑎𝑖, 𝑎𝑗) selected from a set of 𝑛alternatives
+𝐴= {𝑎1, . . . , 𝑎𝑛} for eliciting his/her preferences. The participant is allowed to specify a preorder
+≻over the pair (𝑎𝑖, 𝑎𝑗) in form of either 𝑎𝑖≻𝑎𝑗or 𝑎𝑗≻𝑎𝑖, representing “𝑎𝑖is preferred to 𝑎𝑗” and
+“𝑎𝑗is preferred to 𝑎𝑖”, respectively. To succinctly illustrate the implementation of the preference
+elicitation framework, we only consider such strict preference relations (i.e., 𝑎𝑖≻𝑎𝑗or 𝑎𝑗≻𝑎𝑖).
+However, the framework can be adapted to considering indifference judgments (denoted by 𝑎𝑖∼𝑎𝑗)
+along with strict preference relations (see Ru et al. (2022) for more details). Let the pairwise com-
+parison provided by the participant in the 𝑡-th round, 𝑡= 1, . . . ,𝑇, be denoted by 𝑞(𝑡). It specifies
+a preference relation 𝑎𝑠(𝑡)
+1
+≻𝑎𝑠(𝑡)
+2 , such that 𝑠(𝑡)
+1 , 𝑠(𝑡)
+2
+∈{1, . . . , 𝑛} are the indices of alternatives
+appearing in this comparison. Then, the preference information collected up to 𝑡-th round can be
+denoted by 𝑄(𝑡) = {𝑞(1), . . . , 𝑞(𝑡)}.
+We postulate the existence of a preference model 𝑈(·), which can represent the participant’s
+preferences. The preference model scores the attractiveness of each alternative 𝑎∈𝐴as 𝑈(𝑎),
+and the participant is assumed to make pairwise comparisons 𝑞(𝑡), 𝑡= 1, . . . ,𝑇, according to this
+intrinsic preference model 𝑈(·). Because the participant’s true preference model 𝑈(·) is unknown
+a priori, the objective of the proposed framework is to infer 𝑈(·) according to the supplied pairwise
+comparisons 𝑞(𝑡), 𝑡= 1, . . . ,𝑇. In order to infer the preference model 𝑈(·) as accurately as possible
+within 𝑇rounds, the proposed framework should address two crucial issues in each round 𝑡: (a)
+how to accurately characterize 𝑈(·) based on the preference information 𝑄(𝑡) accumulated in the
+past 𝑡rounds? (b) how to select a new pair of alternatives (𝑎𝑖, 𝑎𝑗) for the participant to make a
+comparison in the following (𝑡+ 1)-th round, based on the characterization of 𝑈(·) derived from
+the acquired preference information 𝑄(𝑡)?
+We address these challenges by developing a variational Bayesian approach that infers the
+participant’s preference model 𝑈(·) from the preference information 𝑄(𝑡) in each round 𝑡. We also
+propose an MCTS-based questioning policy to select a new pair of alternatives (𝑎𝑖, 𝑎𝑗) for the
+participant to make a comparison in the following round. The detailed framework, including its
+phases, is provided in the online supplementary material (Appendix A).
+2.2.
+Variational Bayesian Approach for Preference Inference
+In this section, we present a variational Bayesian approach for efficiently inferring the participant’s
+preference model 𝑈(·) at each round 𝑡, based on the pairwise comparisons 𝑄(𝑡) accumulated during
+the previous 𝑡rounds of preference elicitation. We address the preference inference problem from
+
+===== PAGE 6 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+6
+a Bayesian perspective, aiming to derive a posterior distribution of the preference model 𝑈(·)
+according to the following Bayes rule:
+𝑝(𝑈| 𝑄(𝑡)) = 𝑝(𝑄(𝑡) | 𝑈)𝑝(𝑈)
+𝑝(𝑄(𝑡))
+=
+𝑝(𝑄(𝑡) | 𝑈)𝑝(𝑈)
+∫
+𝑈𝑝(𝑄(𝑡) | 𝑈)𝑝(𝑈)d𝑈
+,
+(1)
+where 𝑝(𝑈) and 𝑝(𝑈| 𝑄(𝑡)) represent the prior and posterior (distributions) of the preference
+model 𝑈(·), respectively, 𝑝(𝑄(𝑡) | 𝑈) denotes the likelihood of the preference information 𝑄(𝑡)
+given the preference model 𝑈(·), and 𝑝(𝑄(𝑡)) =
+∫
+𝑈𝑝(𝑄(𝑡) | 𝑈)𝑝(𝑈)d𝑈serves as the normalization
+factor.
+In defining the likelihood 𝑝(𝑄(𝑡) | 𝑈), we assume the independence between pairwise compar-
+isons in 𝑄(𝑡) and opt for the Bradley-Terry model (Bradley and Terry (1952)) to characterize the
+probability of generating each pairwise comparison 𝑞(𝑑), 𝑑= 1, . . . ,𝑡, by the underlying preference
+model 𝑈(·). In this way, the likelihood 𝑝(𝑄(𝑡) | 𝑈) can be formulated as:
+𝑝(𝑄(𝑡) | 𝑈) =
+𝑡Ö
+𝑑=1
+𝑝(𝑞(𝑑) : 𝑎𝑠(𝑑)
+1
+≻𝑎𝑠(𝑑)
+2
+| 𝑈) =
+𝑡Ö
+𝑑=1
+exp(𝑈(𝑎𝑠(𝑑)
+1 ))
+exp(𝑈(𝑎𝑠(𝑑)
+1 )) + exp(𝑈(𝑎𝑠(𝑑)
+2 )) .
+(2)
+This formulation has been adopted in Ru et al. (2022), in which one can find more details for
+justifying this formulation.
+The prior 𝑝(𝑈) specifies the distribution of the preference model 𝑈(·) before any preference
+information is provided by the participant. For simplicity, we assume 𝑝(𝑈) is a uniform distribution
+on the set of all potential preference model instances. One can refer to Ru et al. (2022) for discussion
+on specifying a customized prior 𝑝(𝑈) by incorporating the participant’s subjective judgments
+about the decision problem.
+Once the likelihood 𝑝(𝑄(𝑡) | 𝑈) and the prior 𝑝(𝑈) have been defined, our attention turns to
+deriving the posterior:
+𝑝(𝑈| 𝑄(𝑡)) =
+Î𝑡
+𝑑=1
+exp(𝑈(𝑎𝑠(𝑑)
+1
+))
+exp(𝑈(𝑎𝑠(𝑑)
+1
+))+exp(𝑈(𝑎𝑠(𝑑)
+2
+)) 𝑝(𝑈)
+∫
+𝑈
+Î𝑡
+𝑑=1
+exp(𝑈(𝑎𝑠(𝑑)
+1
+))
+exp(𝑈(𝑎𝑠(𝑑)
+1
+))+exp(𝑈(𝑎𝑠(𝑑)
+2
+)) 𝑝(𝑈)d𝑈
+.
+(3)
+The posterior 𝑝(𝑈| 𝑄(𝑡)) assigns each potential preference model instance 𝑈(·) a probability mass
+that signifies its fitting ability to reproduce the preference information 𝑄(𝑡). Following the principle
+of Bayes rule, the posterior 𝑝(𝑈| 𝑄(𝑡)) strikes a balance between the likelihood 𝑝(𝑄(𝑡) | 𝑈) and
+the prior 𝑝(𝑈). When the pairwise comparisons in 𝑄(𝑡) are few (i.e., 𝑡is small), the impact of the
+likelihood 𝑝(𝑄(𝑡) | 𝑈) on the posterior 𝑝(𝑈| 𝑄(𝑡)) is marginal and the posterior 𝑝(𝑈| 𝑄(𝑡)) tends
+to be uniformly distributed on the set of potential preference model instances (recall that the prior
+
+===== PAGE 7 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+7
+𝑝(𝑈) is a uniform distribution). As the number of pairwise comparisons in 𝑄(𝑡) increases (i.e., 𝑡
+rises), the likelihood 𝑝(𝑄(𝑡) | 𝑈) overwhelms the prior 𝑝(𝑈), leading the posterior 𝑝(𝑈| 𝑄(𝑡)) to
+converge closer to the participant’s true preference model instance (Ru et al. (2022)).
+It is beneficial to address the preference inference problem within the Bayesian framework due
+to the following two reasons. First, the Bayesian preference inference method represents the partic-
+ipant’s preferences using the derived posterior 𝑝(𝑈| 𝑄(𝑡)) defined over all the potential preference
+model instances rather than arbitrarily selecting a single preference model instance. Taking into
+account the whole set of potential preference model instances would benefit the following selection
+of the next pair of alternatives for inquiry (see Section 2.3) since the uncertainty in exploring the
+preference information 𝑄(𝑡) is fully addressed within the Bayesian framework and implied by the
+posterior 𝑝(𝑈| 𝑄(𝑡)). Second, the Bayesian preference inference method tolerates the participant’s
+cognitive biases underlying the preference information 𝑄(𝑡) by assigning probability masses to all
+the potential preference model instances, not necessarily only the compatible ones which reconstruct
+all the pairwise comparisons in 𝑄(𝑡). At this point, the Bayesian preference inference method is
+robust in characterizing the participant’s preferences, as any potential cognitive bias cannot exclude
+the true preference model instance from the consideration set.
+While conceptually straightforward, the practical implementation of this Bayesian preference
+inference method confronts a challenge that the posterior 𝑝(𝑈| 𝑄(𝑡)) cannot be derived in an ana-
+lytical form. This is because the prior 𝑝(𝑈) is not conjugate to the likelihood 𝑝(𝑄(𝑡) | 𝑈), which
+results in no closed-form solution for the normalization factor 𝑝(𝑄(𝑡)) =
+∫
+𝑈𝑝(𝑄(𝑡) | 𝑈)𝑝(𝑈)d𝑈
+(Rossi et al. (2012)). Therefore, it is necessary to resort to using an effective inference technique to
+approximate the target distribution 𝑝(𝑈| 𝑄(𝑡)). The approximation inference methods for Bayesian
+models in the literature can be broadly categorized into sampling- and optimization-based (see
+Murphy (2012, 2023)). Typical instances of the sampling-based approximation inference methods
+include Markov Chain Monte Carlo (MCMC) methods and their variants. These approaches iter-
+atively sample parameter values from the full conditional distributions and perform the inference
+based on the sample of correlated draws. The drawback of such methods consists in their low
+efficiency in data-intensive tasks due to the need for tens of thousands of iterations to achieve
+convergence. By contrast, variational Bayes (also called variational inference) methods, as repre-
+sentatives of the optimization-based inference methods, replace sampling with optimization and
+approximate the posterior distribution with a variational distribution by solving an optimization
+
+===== PAGE 8 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+8
+problem. These methods enhance the speed and scalability of model inference and, thus, are espe-
+cially suitable for large-scale applications. In light of this advantage, variational Bayes can provide
+efficient model inference for our scenario because the proposed MCTS-based search method for
+selecting a new inquiry question (𝑎𝑖?𝑎𝑗) involves numerous model inference problem instances,
+and thus the efficiency of the inference method is the utmost concern in this paper (see Section 2.3).
+We give an approximation inference approach based on variational Bayes for approximating
+the posterior 𝑝(𝑈| 𝑄(𝑡)) of the preference model 𝑈(·). Assume the preference model 𝑈(·) is
+parameterized by a parameter vector 𝒖and its prior is specified by another parameter vector 𝜶.
+Then, the prior 𝑝(𝑈), the likelihood 𝑝(𝑄(𝑡) | 𝑈), and the posterior 𝑝(𝑈| 𝑄(𝑡)) can be, respec-
+tively, rewritten as 𝑝(𝒖| 𝜶), 𝑝(𝑄(𝑡) | 𝒖), and 𝑝(𝒖| 𝑄(𝑡)). The proposed approximation inference
+approach approximates the posterior 𝑝(𝒖| 𝑄(𝑡)) using a simple variational distribution 𝑞(𝒖| 𝜽)
+parameterized by a variational parameter vector 𝜽. The difference between 𝑝(𝒖| 𝑄(𝑡)) and 𝑞(𝒖| 𝜽)
+can be quantified using the Kullback-Leibler divergence defined as 𝐷KL
+
+𝑞(𝒖| 𝜽) || 𝑝
+
+𝒖| 𝑄(𝑡)
+=
+∫
+𝑞(𝒖| 𝜽) log
+𝑞(𝒖|𝜽)
+𝑝(𝒖|𝑄(𝑡))d𝒖. Variational Bayes aims to minimizes the KL divergence by adjusting
+𝜽to find the best approximation 𝑞(𝒖| 𝜽) to 𝑝(𝒖| 𝑄(𝑡)). However, the KL divergence cannot be
+optimized directly with respect to 𝜽. Instead, minimizing the KL divergence can be equivalently
+transformed to maximizing the evidence lower bound (ELBO) function 𝐿(𝜽) with respect to 𝜽as
+follows (Murphy (2023)):
+max
+𝜽
+𝐿(𝜽) =
+∫
+𝑞(𝒖| 𝜽) log 𝑝(𝑄(𝑡), 𝒖| 𝜶)
+𝑞(𝒖| 𝜽)
+d𝒖.
+(4)
+The above problem can be addressed by applying gradient-based optimization algorithms. How-
+ever, the gradient of the ELBO function 𝐿(𝜽) with respect to the variational parameter vector 𝜽,
+denoted by ∇𝜽𝐿(𝜽), cannot be computed analytically, due to the lack of conjugacy between the
+prior 𝑝(𝒖| 𝜶) and the likelihood 𝑝(𝑄(𝑡) | 𝒖). Instead, the gradient ∇𝜽𝐿(𝜽) can be approximated
+using Monte Carlo sampling as follows (see Online Appendix B):
+∇𝜽𝐿(𝜽) ≈
+𝑊
+∑︁
+𝑤=1
+[∇𝜽log 𝑞(𝒖(𝑤) | 𝜽)][log 𝑝(𝑄(𝑡) | 𝒖(𝑤)) + log 𝑝(𝒖(𝑤) | 𝜶) −log 𝑞(𝒖(𝑤) | 𝜽)],
+(5)
+where 𝒖(𝑤), 𝑤= 1, . . . ,𝑊, are 𝑊samples of the parameter 𝒖drawn from the distribution 𝑞(𝒖| 𝜽).
+Then, gradient-based optimization algorithms can be used based on the derived stochastic gradient
+∇𝜽𝐿(𝜽) to maximize the ELBO function with respect to 𝜽. Finally, the variational distribution 𝑞(𝒖|
+𝜽∗(𝑄(𝑡))) equipped with the achieved optimum for 𝜽, denoted by 𝜽∗(𝑄(𝑡)), is the best approximation
+to the posterior 𝑝(𝒖| 𝑄(𝑡)). Note that the optimum 𝜽∗(𝑄(𝑡)) depends on the preference information
+𝑄(𝑡), meaning that the optimum variational distribution varies at different rounds.
+
+===== PAGE 9 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+9
+2.3.
+MCTS-based Questioning Policy for Question Selection
+This section introduces a questioning policy for the interactive preference elicitation problem. The
+questioning policy aims to maximize the accumulated variance reduction scales in estimating the
+participant’s preference model. At each round 𝑡= 1, . . . ,𝑇, the MCTS-based questioning policy
+iteratively selects a new pair of alternatives (𝑎𝑖, 𝑎𝑗) for the participant to make a comparison
+conditional on the current accumulated preference information 𝑄(𝑡−1).
+First, let us consider quantifying the value of a question (𝑎𝑖?𝑎𝑗). At the end of the (𝑡−1)-th round,
+the accumulated preference information is 𝑄(𝑡−1). Assume the participant’s preferences are stable
+during the whole procedure, and then we can predict the participant’s answer to a new question
+(𝑎𝑖?𝑎𝑗) at the 𝑡-th round based on 𝑄(𝑡−1) as follows. The probability of the participant expressing
+𝑎𝑖≻𝑎𝑗is defined as the following posterior predictive probability:
+𝑝(𝑎𝑖≻𝑎𝑗| 𝑄(𝑡−1)) =
+∫
+𝑝(𝑎𝑖≻𝑎𝑗,𝑈| 𝑄(𝑡−1))d𝑈
+=
+∫
+𝑝(𝑎𝑖≻𝑎𝑗| 𝑈)𝑝(𝑈| 𝑄(𝑡−1))d𝑈
+=
+∫
+𝑝(𝑎𝑖≻𝑎𝑗| 𝒖)𝑝(𝒖| 𝑄(𝑡−1))d𝒖
+= E𝒖∼𝑝(𝒖|𝑄(𝑡−1) ) 𝑝(𝑎𝑖≻𝑎𝑗| 𝒖).
+(6)
+Analogously, the probability of the participant expressing 𝑎𝑗≻𝑎𝑖is defined as:
+𝑝(𝑎𝑗≻𝑎𝑖| 𝑄(𝑡−1)) = E𝒖∼𝑝(𝒖|𝑄(𝑡−1) ) 𝑝(𝑎𝑗≻𝑎𝑖| 𝒖).
+(7)
+Since the posterior 𝑝(𝒖| 𝑄(𝑡−1)) is approximated by the variational distribution 𝑞(𝒖| 𝜽∗(𝑄(𝑡−1))),
+the above posterior predictive distribution can be calculated as:
+𝑝(𝑎𝑖≻𝑎𝑗| 𝑄(𝑡−1)) ≈E𝒖∼𝑞(𝒖|𝜽∗(𝑄(𝑡−1) )) 𝑝(𝑎𝑖≻𝑎𝑗| 𝒖) ≈1
+𝑊
+𝑊
+∑︁
+𝑤=1
+I(𝑈(𝑤) (𝑎𝑖) > 𝑈(𝑤) (𝑎𝑗)),
+(8)
+𝑝(𝑎𝑗≻𝑎𝑖| 𝑄(𝑡−1)) ≈E𝒖∼𝑞(𝒖|𝜽∗(𝑄(𝑡−1) )) 𝑝(𝑎𝑗≻𝑎𝑖| 𝒖) ≈1
+𝑊
+𝑊
+∑︁
+𝑤=1
+I(𝑈(𝑤) (𝑎𝑗) > 𝑈(𝑤) (𝑎𝑖)),
+(9)
+where 𝑊preference model instances 𝑈(1)(·), . . . ,𝑈(𝑊)(·) are equipped with 𝑊samples of the
+parameter 𝒖drawn from the posterior 𝑞(𝒖| 𝜽∗(𝑄(𝑡−1))) to indicate whether 𝑈(𝑤)(𝑎𝑖) > 𝑈(𝑤)(𝑎𝑗)
+or 𝑈(𝑤)(𝑎𝑗) > 𝑈(𝑤)(𝑎𝑖), 𝑤= 1, . . . ,𝑊. The function I(𝑈(𝑤)(𝑎𝑖) > 𝑈(𝑤)(𝑎𝑗)) (or I(𝑈(𝑤)(𝑎𝑗) >
+𝑈(𝑤)(𝑎𝑖))) is an indicator such that I(𝑈(𝑤)(𝑎𝑖) > 𝑈(𝑤)(𝑎𝑗)) = 1 (or I(𝑈(𝑤)(𝑎𝑗) > 𝑈(𝑤)(𝑎𝑖)) = 1)
+if 𝑈(𝑤)(𝑎𝑖) > 𝑈(𝑤)(𝑎𝑗) (or 𝑈(𝑤)(𝑎𝑗) > 𝑈(𝑤)(𝑎𝑖)) and 0, otherwise. It is obvious that 𝑝(𝑎𝑖≻𝑎𝑗|
+𝑄(𝑡−1)) + 𝑝(𝑎𝑗≻𝑎𝑖| 𝑄(𝑡−1)) = 1.
+With the posterior predictive probabilities 𝑝(𝑎𝑖≻𝑎𝑗| 𝑄(𝑡−1)) and 𝑝(𝑎𝑗≻𝑎𝑖| 𝑄(𝑡−1)) defined
+above, we can quantify the value of a question (𝑎𝑖?𝑎𝑗) by measuring the uncertainty reduction in
+
+===== PAGE 10 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+10
+exploring the participant’s preferences, as we aim to capture the participant’s preferences compre-
+hensively. Consequently, the value of a question (𝑎𝑖?𝑎𝑗) at the 𝑡-th round (denoted by 𝑣(𝑡)(𝑎𝑖, 𝑎𝑗))
+can be defined as the expected scale of variance reduction if we inquire about the participant’s
+preference between 𝑎𝑖and 𝑎𝑗, i.e.,
+𝑣(𝑡) (𝑎𝑖, 𝑎𝑗) =𝑝(𝑎𝑖≻𝑎𝑗| 𝑄(𝑡−1)){Var[𝑝(𝒖| 𝑄(𝑡−1))] −Var[𝑝(𝒖| 𝑄(𝑡−1) ∪{𝑎𝑖≻𝑎𝑗})]}+
+𝑝(𝑎𝑗≻𝑎𝑖| 𝑄(𝑡−1)){Var[𝑝(𝒖| 𝑄(𝑡−1))] −Var[𝑝(𝒖| 𝑄(𝑡−1) ∪{𝑎𝑗≻𝑎𝑖})]}
+≈𝑝(𝑎𝑖≻𝑎𝑗| 𝑄(𝑡−1)){Var[𝑝(𝒖| 𝜽∗(𝑄(𝑡−1)))] −Var[𝑝(𝒖| 𝜽∗(𝑄(𝑡−1) ∪{𝑎𝑖≻𝑎𝑗}))]}+
+𝑝(𝑎𝑗≻𝑎𝑖| 𝑄(𝑡−1)){Var[𝑝(𝒖| 𝜽∗(𝑄(𝑡−1)))] −Var[𝑝(𝒖| 𝜽∗(𝑄(𝑡−1) ∪{𝑎𝑖≻𝑎𝑗}))]},
+(10)
+where 𝑞(𝒖| 𝜽∗(𝑄(𝑡−1) ∪{𝑎𝑖≻𝑎𝑗})) and 𝑞(𝒖| 𝜽∗(𝑄(𝑡−1) ∪{𝑎𝑗≻𝑎𝑖})) are the optimum variational
+distributions for approximating the posteriors 𝑝(𝒖| 𝑄(𝑡−1) ∪{𝑎𝑖≻𝑎𝑗}) and 𝑝(𝒖| 𝑄(𝑡−1) ∪{𝑎𝑗≻
+𝑎𝑖}), respectively, given the prior observations 𝑄(𝑡−1) and the newly observed preference. Such a
+definition considers the uncertainty of whether the participant prefers 𝑎𝑖to 𝑎𝑗or 𝑎𝑗to 𝑎𝑖. One can
+see that the value 𝑣(𝑡)(𝑎𝑖, 𝑎𝑗) of a question (𝑎𝑖?𝑎𝑗) varies depending on the timing of an inquiry,
+i.e., at which round 𝑡the participant expresses her preference between 𝑎𝑖and 𝑎𝑗.
+Based on the quantification of the value of a question during the procedure, the goal of the
+questioning policy can be formulated to maximize the accumulated values of the questions inquired
+to the participant within the 𝑇rounds. Such a problem can be considered as a finite Markov decision
+process (Sutton and Barto (2018)), in which the accumulated preference information 𝑄(𝑡−1) is the
+state at the 𝑡-th round, the posed question (𝑎𝑖?𝑎𝑗) is the action, and the uncertainty reduction
+of the posterior of the participant’s preference model is the reward. In particular, the explicit
+representations of the transition and reward models of this problem can be exactly built. Specifically,
+after posing a question (𝑎𝑖?𝑎𝑗) at the 𝑡-th round, the new state 𝑄(𝑡) is given by 𝑄(𝑡−1) ∪{𝑎𝑖≻𝑎𝑗}
+with probability 𝑝(𝑎𝑖≻𝑎𝑗| 𝑄(𝑡−1)) or 𝑄(𝑡−1) ∪{𝑎𝑗≻𝑎𝑖} with probability 𝑝(𝑎𝑗≻𝑎𝑖| 𝑄(𝑡−1)).
+The corresponding reward is defined as the reduction in posterior variance: Var[𝑝(𝒖| 𝑄(𝑡−1))] −
+Var[𝑝(𝒖| 𝑄(𝑡−1) ∪{𝑎𝑖≻𝑎𝑗})] or Var[𝑝(𝒖| 𝑄(𝑡−1))] −Var[𝑝(𝒖| 𝑄(𝑡−1) ∪{𝑎𝑗≻𝑎𝑖})]. Therefore,
+to address this problem, we can use model-based reinforcement learning methods, which use a
+planning algorithm based on the constructed transition and reward models to form the questioning
+policy (Murphy (2023)). Dynamic programming is a classical representative of this stream, but it
+is of low efficiency in dealing with the considered problem. This is because dynamic programming
+needs to perform sweeps through the entire state-action space and update each state-action pair once
+per sweep to generate the distribution of possible transitions for each state. Then, each distribution
+is used to compute a backed-up value (update target) and update the state’s estimated value. Such a
+
+===== PAGE 11 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+11
+way is problematic in a large state-action space as there may be insufficient computational budget to
+complete even one sweep (Sutton and Barto (2018)). The planning algorithm used in the way, e.g.,
+dynamic programming, is called background planning. The other way to use planning in Markov
+decision processes, named decision-time planning, is to begin and complete it after observing each
+new state as a computation whose output selects a single action. In contrast to background planning,
+decision-time planning focuses more on the current state by dedicating the limited computational
+budget to make rollout to simulate sequences that all begin at the current state. Decision-time
+planning is more suitable for the problem considered in this paper because the questioning policy in
+the interaction with the participant should be more specific to the current state rather than exploring
+the entire state-action space before beginning the interactive preference elicitation process.
+This paper applies a state-of-the-art decision-time planning algorithm called Monte Carlo Tree
+Search (MCTS) to propose a questioning policy for the interactive preference elicitation problem.
+MCTS is mainly responsible for the success of the famous AlphaGo and AlphaZero programs
+(see Silver et al. (2016)) and has been widely applied to many other kinds of sequential decision
+problems (see Browne et al. (2012)). The core idea of MCTS is to successively focus multiple
+simulations starting at the current state by extending the initial portions of sequences that have
+received high evaluations from earlier simulations (Sutton and Barto (2018)). This feature can
+mitigate short-sightedness by considering potential future occurrences while identifying valuable
+questions through a certain mechanism and facilitating random exploration to some extent, thus
+alleviating the computational burden associated with fully exploring the state-action space in terms
+of computation time or space.
+We provide an overview of the implementation of the MCTS-based questioning policy, while
+a detailed description, including algorithmic formulation and theoretical foundations, is presented
+in the Online Appendix C due to space constraints. Let 𝜋(·) denote the questioning policy that
+selects the pairwise comparison (𝑎𝑖?𝑎𝑗) (action) to present at each round 𝑡= 1, . . . ,𝑇, based on
+the accumulated preference information 𝑄(𝑡−1) (state). At each interaction round 𝑡, the questioning
+policy 𝜋(𝑄(𝑡−1)) executes an MCTS procedure, performing as many iterations as possible within the
+predefined computational budget before selecting the next question for the participant. This process
+incrementally constructs a question tree, where the root node represents the current state, and
+the child nodes correspond to candidate questions. Each iteration consists of four key operations:
+Selection, Expansion, Simulation, and Backpropagation. Finally, once the predefined computational
+budget is reached, the root’s child with the highest averaged reward will be chosen to indicate the
+corresponding question  𝑎𝑖?𝑎𝑗
+ to be posed in the 𝑡-th round.
+
+===== PAGE 12 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+12
+3.
+Application of Bayesian Interactive Preference Elicitation Framework in
+MCDA
+In this section, we expound upon applying the proposed Bayesian interactive preference elicitation
+framework in the Multiple Criteria Decision Aiding (MCDA) scenario. MCDA aims to assist
+the DM in assessing a finite set of alternatives 𝐴= {𝑎1, . . . , 𝑎𝑛} in terms of multiple criteria
+𝐺= {𝑔1, . . . , 𝑔𝑚}. Let 𝑔𝑗(𝑎𝑖) denote the performance of alternative 𝑎𝑖∈𝐴on criterion 𝑔𝑗∈𝐺.
+Without loss of generality, we assume that the larger 𝑔𝑗(𝑎𝑖), the more preferred alternative 𝑎𝑖on
+criterion 𝑔𝑗. In the context of MCDA, the most widely used type of preference model to represent
+the DM’s preferences is the additive value function model defined as follows (Keeney and Raiffa
+(1993)):
+𝑈(𝑎𝑖) =
+𝑚
+∑︁
+𝑗=1
+𝑢𝑗(𝑔𝑗(𝑎𝑖)),
+(11)
+where 𝑈(𝑎𝑖) is a comprehensive score for quantifying the DM’s perceived attractiveness of
+alternative 𝑎𝑖, and 𝑢𝑗(𝑔𝑗(𝑎𝑖)) is a marginal value of alternative 𝑎𝑖on each criterion 𝑔𝑗, 𝑗= 1, . . . , 𝑚.
+Marginal value functions 𝑢𝑗(·) are supposed to be monotone (non-decreasing for gain-type criteria)
+and normalized such that the comprehensive value 𝑈(𝑎𝑖) is bound within the interval [0,1].
+The true value function model 𝑈(·) of the DM remains unknown a priori. Hence, we need a
+technique to approximate the true value function model 𝑈(·). There are diverse types of marginal
+value functions (including linear, piecewise-linear, splined, and general monotone ones) that can
+be utilized for this approximation (see (Liu et al. 2020)). For simplicity, we only consider the case
+of piecewise-linear marginal value functions. Approximating the true value function model using
+piecewise-linear marginal value functions can be seen as a nonparametric technique because we
+do not need to make any assumptions on the form of the true marginal value functions. Such an
+approximation technique has been widely used in the MCDA field (see, e.g., (Liu et al. 2023)) and
+we present the detailed elaboration on this technique in Online Appendix D. With the approximation
+using piecewise-linear marginal value functions, the true value function model𝑈(·) can be specified
+as
+𝑈(𝑎𝑖) = 𝒖T𝑽(𝑎𝑖) ,
+(12)
+where 𝒖is a 𝛾-dimensional parameter vector to signify the intrinsic character of the preference
+model 𝑈(·), and 𝑽(𝑎𝑖) is a 𝛾-dimensional characteristic vector that is fully determined by the
+performances of alternative 𝑎𝑖on multiple criteria, particularly irrelevant to the DM’s preferences.
+In other words, the DM’s value function model 𝑈(·) is parameterized by the preference vector 𝒖.
+
+===== PAGE 13 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+13
+The following linear constraints are imposed to ensure the monotonicity of the marginal value
+functions 𝑢𝑗(·) and normalize the comprehensive value 𝑈(·) within the interval [0,1] (see Online
+Appendix D for more details):
+
+𝒖⩾0,
+1 · 𝒖= 1,
+(13)
+where 1 and 0 are the vectors with all entries being equal to 1 and 0, respectively. One can observe
+that 𝒖resides in the (𝛾−1)-dimensional simplex. In light of such constraints, it is reasonable to
+specify both the prior of the preference model 𝑝(𝒖| 𝜶) and the variational distribution 𝑞(𝒖| 𝜽) as
+two Dirichlet distributions:
+𝑝(𝒖| 𝜶) = Dir(𝒖| 𝜶)
+and
+𝑞(𝒖| 𝜽) = Dir(𝒖| 𝜽),
+(14)
+where 𝜶= (𝛼1, . . . , 𝛼𝛾)T ∈R𝛾and 𝜽= (𝜃1, . . . , 𝜃𝛾)T ∈R𝛾are the parameters for the two Dirichlet
+distributions such that 𝛼𝑘> 0 and 𝜃𝑘> 0 for 𝑘= 1, . . . , 𝛾. Note that the Dirichlet distributions are
+defined over the (𝛾−1)-dimensional simplex, and thus, the non-negativity and normalization of 𝒖
+can be fulfilled. In particular, we set 𝜶= 1 in this paper so that the prior 𝑝(𝒖| 𝜶) boils down to
+the uniform distribution over the (𝛾−1)-dimensional simplex, which implies that we have no other
+reasons to favor one preference model over another since no preference information from the DM
+is observed before starting the interactive preference elicitation procedure.
+Once the prior 𝑝(𝒖| 𝜶) and the variational distribution 𝑞(𝒖| 𝜽) are specified, we can apply
+the proposed Bayesian interactive preference elicitation framework to interact with the DM to
+progressively capture the DM’s preferences in the MCDA context. As a key component of the
+proposed framework, the approximation inference approach proposed in Section 2.2 will be repeat-
+edly invoked to use a variational distribution 𝑞(𝒖| 𝜽) to approximate the posterior 𝑝(𝒖| 𝑄(𝑡)) for
+𝑡= 1, . . . ,𝑇. The effectiveness and efficiency of the approximation inference approach influence the
+outcome of capturing the DM’s preferences to a large extent. In the following, let us investigate
+more implementation details of the approximation inference approach in the MCDA context.
+Recall that the approximation inference approach maximizes the ELBO function 𝐿(𝜽) to
+find the optimal variational distribution 𝑞(𝒖| 𝜽∗(𝑄(𝑡))) that can minimize the KL divergence
+𝐷KL
+
+𝑞(𝒖| 𝜽) || 𝑝
+
+𝒖| 𝑄(𝑡)
+. We use a gradient-based optimization algorithm to address the prob-
+lem based on the gradient formulated in Equation (5). In the MCDA context, the variational
+distribution 𝑞(𝒖| 𝜽) is a Dirichlet distribution Dir(𝒖| 𝜽), which requires 𝜽> 0. To satisfy this
+requirement in the gradient-based optimization algorithm, we can introduce an auxiliary vector
+𝝓=  𝜙1, . . . , 𝜙𝛾
+T ∈R𝛾such that 𝜃𝑘= 𝜙2
+𝑘for 𝑘= 1, . . . , 𝛾. We denote this relationship as 𝜽= 𝝓2. In
+this way, the gradient in Equation (5) can be expressed in terms of 𝝓as:
+
+===== PAGE 14 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+14
+∇𝝓𝐿(𝝓) ≈
+𝑊
+∑︁
+𝑤=1
+[∇𝝓2 log 𝑞(𝒖(𝑤) | 𝝓2)][log 𝑝(𝑄(𝑡) | 𝒖(𝑤)) + log 𝑝(𝒖(𝑤) | 𝜶) −log 𝑞(𝒖(𝑤) | 𝝓2)].
+(15)
+Note that the gradient ∇𝝓𝐿(𝝓) is approximated using 𝑊samples of the parameter 𝒖drawn from
+the distribution 𝑞(𝒖| 𝝓2). A practical concern for this approximation is that its variance may be
+very large due to the existence of the term ∇𝝓2 log 𝑞(𝒖| 𝝓2) (Paisley et al. (2012)). As a result,
+a considerable number of samples are necessary to reduce this variance to a level suitable for
+approximating the gradient, implying an increased computational requirement.
+To mitigate the issue of high variance, we opt for a useful method known as the reparameterization
+trick (RT) (Kingma and Welling (2022)) for sampling from 𝑞(𝒖| 𝝓2). The essence of RT is
+to compute a sample from 𝑞(𝒖| 𝝓2) by first sampling an auxiliary variable 𝝐from some noise
+distribution 𝑝(𝝐) which is independent of 𝝓, and then transforming 𝝐to 𝒖using a deterministic
+and differentiable vector-valued function 𝑔𝝓(·) parameterized by 𝝓(Murphy (2023)). This way, we
+can derive a lower variance estimator for the gradient in Equation (15). Such a reparameterization
+trick has been widely used in variational inference-related studies (see Mohamed et al. (2020) for
+a review) and deep generative models (e.g., Variational AutoEncoder (VAE) (Kingma and Welling
+(2022))).
+In the MCDA context, the auxiliary variable 𝝐can be a Gaussian noise such that 𝝐∼N (0, 𝑰),
+where 𝑰is 𝛾-dimensional identity matrix. According to Joo et al. (2020), the reparameterization
+trick to transform from 𝝐to 𝒖is given as
+𝒖= 𝑔𝝓(𝝐) = softmax(𝝁+
+√
+𝚺× 𝝐),
+(16)
+where 𝝁= (𝜇1, . . . , 𝜇𝛾)T ∈R𝛾with each entry 𝜇𝑘= log 𝜙2
+𝑘−1
+𝛾
+Í𝛾
+𝑖=1 log 𝜙2
+𝑖, and 𝚺∈R𝛾×𝛾is a
+diagonal matrix with each entry in the diagonal Σ𝑘= 1
+𝜙2
+𝑘
+
+1 −2
+𝛾
+
++ 1
+𝛾2
+Í𝛾
+𝑖=1
+1
+𝜙2
+𝑖, for 𝑘= 1, . . . , 𝛾. In
+this way, 𝒖follows a Dirichlet distribution 𝑞(𝒖| 𝝓2).
+On the basis of RT, the gradient in Equation (15) can be reformulated as:
+∇𝝓𝐿(𝝓) = ∇𝝓
+∫
+𝑞(𝒖| 𝝓2) log 𝑝(𝑄(𝑡), 𝒖| 𝜶)
+𝑞(𝒖| 𝝓2)
+d𝒖
+= ∇𝝓
+∫
+[log 𝑝(𝑄(𝑡), 𝒖| 𝜶) −log 𝑞(𝒖| 𝝓2)]𝑞(𝒖| 𝝓2)d𝒖
+= ∇𝝓
+∫
+[log 𝑝(𝑄(𝑡), 𝒖| 𝜶) −log 𝑞(𝒖| 𝝓2)]𝑝(𝝐)d𝝐
+= ∇𝝓E𝝐∼𝑝(𝝐)
+h
+log 𝑝(𝑄(𝑡), 𝒖| 𝜶) −log 𝑞(𝒖| 𝝓2)
+i
+= E𝝐∼𝑝(𝝐)
+h
+∇𝝓
+
+log 𝑝(𝑄(𝑡), 𝒖| 𝜶) −log 𝑞(𝒖| 𝝓2)
+i
+.
+(17)
+
+===== PAGE 15 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+15
+Subsequently, by incorporating 𝒖= 𝑔𝝓(𝝐) = softmax(𝝁+ 𝚺× 𝝐), we further derive:
+∇𝝓𝐿(𝝓) = E𝝐∼𝑝(𝝐)
+h
+∇𝝓
+
+log 𝑝(𝑄(𝑡), 𝒖| 𝜶) −log 𝑞(𝒖| 𝝓2)
+i
+= E𝝐∼𝑝(𝝐)
+h
+∇𝒖
+
+log 𝑝(𝑄(𝑡), 𝒖| 𝜶) −log 𝑞(𝒖| 𝝓2)
+
+∇𝝓𝒖
+i
+= E𝝐∼𝑝(𝝐)
+h
+∇𝒖
+
+log 𝑝(𝑄(𝑡), 𝒖| 𝜶) −log 𝑞(𝒖| 𝝓2)
+
+∇𝝓(softmax(𝝁+ 𝚺× 𝝐))
+i
+≈1
+𝑊
+𝑊
+∑︁
+𝑤=1
+h
+∇𝒖
+
+log 𝑝(𝑄(𝑡), 𝒖| 𝜶) −log 𝑞(𝒖| 𝝓2)
+
+∇𝝓
+
+softmax(𝝁+ 𝚺× 𝝐(𝑤))
+i
+,
+(18)
+where 𝝐(𝑤), 𝑤= 1, . . . ,𝑊, are samples of the auxiliary variable 𝝐drawn from the Gaussian
+distribution N (0, 𝑰) and log 𝑝(𝑄(𝑡), 𝒖| 𝜶) = log 𝑝(𝑄(𝑡) | 𝒖) + log 𝑝(𝒖| 𝜶). Next, with the lower
+variance estimator for the gradient in Equation (18), we can use a gradient-based optimization
+algorithm to find the optimal variational distribution 𝑞(𝒖| 𝜽∗(𝑄(𝑡))) for approximating the posterior
+𝑝(𝒖| 𝑄(𝑡)).
+In the following two sections, we validate the performance of the proposed interactive preference
+elicitation framework in MCDA ranking problems. The experimental study is partitioned into two
+parts. The first is to assess the efficacy of the proposed variational Bayesian approach in reproducing
+adequate relations for all pairs of alternatives. The other is to explore the performance of the MCTS-
+based questioning policy in terms of reducing the variance of the posterior distribution and the
+uncertainty regarding the recommended ranking. The experimental study is carried out on a server
+(Intel Xeon Silver 4214 CPU 2.20GHz, RAM 128G, SSD 480G, 4×RTX 2080Ti 11G), employing
+Python 3.8.
+4.
+Computational Experiments on Preference Inference
+In this section, we evaluate the performance of the proposed variational Bayesian approach on
+real-world datasets across diverse MCDA problem settings, focusing on the accuracy of preference
+model inference.
+We begin by outlining the experimental design, which includes the baseline method, Stochastic
+Ordinal Regression (SOR), and the evaluation metric, Average Support of the Inferred Pairwise
+Outranking Indices (ASP), used to assess the performance of preference estimation methods.
+Furthermore, we introduce the real-world datasets employed in this study, along with the problem
+settings characterized by three key factors: the shape of the marginal value function (𝐹1), the
+number of pairwise comparisons provided by the decision-maker (𝐹2), and the proportion of biased
+preference information (𝐹3). Detailed descriptions are provided in Online Appendix E.
+We then present and analyze the experimental results in detail. The average ASP values for the
+proposed variational Bayesian inference approach (both with and without RT) and SOR, across
+
+===== PAGE 16 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+16
+Table 1
+Average ASP for the variants of the proposed variational Bayesian inference approach with/without RT
+and SOR derived from the experiment (Bolded numbers indicate the best result among the three methods.).
+Dataset
+Method
+F1
+F2
+F3
+AVG
+linear
+concave
+convex
+mixture
+20
+40
+60
+80
+0
+10%
+20%
+30%
+TC
+The variant with RT
+0.901
+0.900
+0.884
+0.897
+0.874
+0.895
+0.904
+0.909
+0.936
+0.907
+0.882
+0.856
+0.895
+The counterpart without RT
+0.895
+0.897
+0.876
+0.888
+0.868
+0.888
+0.898
+0.903
+0.924
+0.900
+0.879
+0.853
+0.889
+SOR
+0.883
+0.881
+0.873
+0.879
+0.864
+0.882
+0.887
+0.883
+0.959
+0.906
+0.853
+0.799
+0.879
+IC
+The variant with RT
+0.962
+0.957
+0.961
+0.960
+0.953
+0.959
+0.963
+0.965
+0.970
+0.964
+0.956
+0.950
+0.960
+The counterpart without RT
+0.963
+0.956
+0.960
+0.958
+0.954
+0.958
+0.962
+0.963
+0.967
+0.962
+0.957
+0.952
+0.959
+SOR
+0.957
+0.950
+0.952
+0.951
+0.950
+0.952
+0.954
+0.953
+0.974
+0.960
+0.945
+0.930
+0.952
+SS
+The variant with RT
+0.943
+0.935
+0.937
+0.940
+0.927
+0.938
+0.944
+0.947
+0.947
+0.944
+0.937
+0.928
+0.939
+The counterpart without RT
+0.941
+0.931
+0.935
+0.937
+0.926
+0.935
+0.940
+0.943
+0.943
+0.941
+0.935
+0.927
+0.936
+SOR
+0.937
+0.927
+0.930
+0.932
+0.924
+0.931
+0.934
+0.937
+0.949
+0.941
+0.927
+0.910
+0.932
+CE
+The variant with RT
+0.899
+0.886
+0.887
+0.890
+0.865
+0.891
+0.901
+0.907
+0.904
+0.898
+0.889
+0.872
+0.891
+The counterpart without RT
+0.894
+0.879
+0.877
+0.880
+0.858
+0.882
+0.892
+0.898
+0.894
+0.889
+0.881
+0.867
+0.883
+SOR
+0.891
+0.875
+0.883
+0.883
+0.856
+0.883
+0.893
+0.900
+0.906
+0.897
+0.878
+0.852
+0.883
+RU
+The variant with RT
+0.942
+0.935
+0.936
+0.936
+0.924
+0.935
+0.943
+0.947
+0.944
+0.943
+0.936
+0.926
+0.937
+The counterpart without RT
+0.940
+0.929
+0.932
+0.930
+0.921
+0.931
+0.937
+0.941
+0.939
+0.937
+0.932
+0.923
+0.933
+SOR
+0.935
+0.930
+0.923
+0.929
+0.918
+0.926
+0.934
+0.939
+0.948
+0.939
+0.924
+0.907
+0.929
+EBC
+The variant with RT
+0.886
+0.870
+0.871
+0.875
+0.842
+0.874
+0.889
+0.898
+0.891
+0.884
+0.873
+0.855
+0.875
+The counterpart without RT
+0.881
+0.863
+0.864
+0.868
+0.838
+0.867
+0.881
+0.890
+0.881
+0.875
+0.868
+0.852
+0.869
+SOR
+0.882
+0.867
+0.861
+0.867
+0.836
+0.866
+0.882
+0.893
+0.892
+0.882
+0.866
+0.837
+0.869
+MPI
+The variant with RT
+0.894
+0.875
+0.887
+0.882
+0.860
+0.881
+0.894
+0.903
+0.901
+0.894
+0.880
+0.863
+0.885
+The counterpart without RT
+0.892
+0.867
+0.882
+0.877
+0.858
+0.876
+0.888
+0.896
+0.893
+0.887
+0.876
+0.862
+0.879
+SOR
+0.888
+0.867
+0.878
+0.872
+0.854
+0.875
+0.883
+0.893
+0.907
+0.893
+0.867
+0.838
+0.876
+GUU
+The variant with RT
+0.884
+0.867
+0.866
+0.866
+0.841
+0.871
+0.882
+0.889
+0.888
+0.878
+0.868
+0.850
+0.871
+The counterpart without RT
+0.882
+0.858
+0.858
+0.861
+0.840
+0.864
+0.874
+0.881
+0.878
+0.870
+0.863
+0.849
+0.865
+SOR
+0.879
+0.858
+0.858
+0.858
+0.839
+0.864
+0.872
+0.879
+0.887
+0.875
+0.858
+0.833
+0.863
+different levels of factors (𝐹1, 𝐹2, 𝐹3) and real-world datasets, are reported in Table 1. The RT-
+enhanced variant consistentlyachieves higherASPvalues acrossalldatasets, demonstratingsuperior
+performance over the baseline methods. The Wilcoxon test (see Online Appendix F) confirms
+the statistical significance of these results, with 𝑝-values below 0.001 for most datasets, further
+validating the advantage of our RT-based approach. The following subsections provide an in-depth
+analysis of performance variations across different datasets and experimental settings.
+4.1.
+Performance analysis for different shapes of marginal value functions
+This section analyzes the experimental results across different datasets, focusing on various shapes
+of marginal value functions. Due to space limitations, Figure 2a presents boxplots of the average
+ASP values for a single dataset, CE, while the complete results for all datasets, which exhibit similar
+trends, are available in Online Appendix G. By examining the mean and median values, it is evident
+that the proposed method with RT consistently outperforms the other two methods regardless of
+the form of the marginal value function. This advantage holds across all four types of marginal
+value functions. Furthermore, the results for the two variants of the proposed variational Bayesian
+inference approach are more concentrated, indicating greater stability in inferring DMs’ preferences.
+Finally, ASP values are higher for all three methods when the marginal value function is linear,
+which is expected since we approximate the true function using a piecewise linear form. Simpler
+
+===== PAGE 17 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+17
+functions require fewer sub-intervals and parameters, making them easier to estimate, whereas more
+complex functions demand more sub-intervals and parameters, increasing the estimation challenge.
+(a)
+(b)
+(c)
+Figure 2
+Average ASP for the variants of the proposed variational Bayesian inference approach with/without RT
+and SOR, evaluated on the CE dataset, considering various shapes of marginal value functions, different
+numbers of pairwise comparisons, and varying proportions of biased preference information.
+4.2.
+Performance analysis for different numbers of pairwise comparisons
+This section examines the impact of varying amounts of preference information on inference
+performance. We compare the proposed variational Bayesian inference approach (with and without
+RT) and SOR under {20,40,60,80} pairwise comparisons. Figure 2b presents results for the CE
+dataset, while the complete results for all datasets are provided in Online Appendix G. As the
+number of comparisons increases, all three methods exhibit gradual performance improvements,
+as additional preference information reduces uncertainty in inferring the DM’s preference model.
+Notably, SOR’s performance is more sensitive to the amount of preference information compared
+to our Bayesian approach. This is due to fundamental differences between the two methods:
+SOR encodes preference constraints as linear inequalities, refining the feasible region as more
+information is provided. In contrast, our Bayesian approach models preferences probabilistically,
+capturing variations across value functions. Consequently, even with limited data, our method infers
+a well-concentrated posterior distribution, reducing uncertainty more effectively.
+Interestingly, the ASP values of the SOR method decrease when the number of pairwise compar-
+isons increases from 60 to 80 for the first two datasets (TC and IC). This anomaly arises because
+a larger amount of preference information also introduces more biased inputs. Since SOR con-
+structs feasible regions based on linear constraints, biased inputs may exclude the true preference
+model, compromising its performance. In contrast, our Bayesian approach assigns probabilities to
+all possible preference models, mitigating the risk of discarding the true model due to bias. Section
+
+===== PAGE 18 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+18
+4.3 provides more direct evidence for this point. Moreover, as the amount of accurate preference
+information increases, it helps to correct the impact of biased data, which is consistent with the
+conclusions drawn from the results.
+4.3.
+Performance analysis for different proportions of biased preference information
+In this section, we examine the performance of the variants of the proposed variational Bayesian
+inference approach with/without RT and SOR with biased preference information. Figure 2c
+presents results for the CE dataset, while the complete results for all datasets are provided in Online
+Appendix G. Empirical results can be summarized from the following two aspects. On the one
+hand, as the proportion of biased preference information increases, the performance of all three
+methods declines, which is in line with our expectations. This is because an increase in biased pref-
+erence information causes the posterior distribution of the value function to diverge from the true
+preference model 𝑈𝑡𝑟𝑢𝑒(𝑎) for the proposed Bayesian methods. As for SOR, it causes the feasible
+region of the preference model to be wrongly restricted. On the other hand, the magnitude of the
+decline in ASP with increasing biased preference information is less significant with our approach
+compared to SOR, indicating that the proposed variational Bayesian approach exhibits greater
+robustness to biased preference information. The reason is that our method assigns probabilities
+to all potential value function models, ensuring that the actual DM’s preference model remains
+within the consideration set despite the presence of biased information. Moreover, by modeling the
+provided preferences from a probabilistic perspective, our approach ensures that even if a small
+proportion of comparisons is biased, the majority of consistent preference information will guide
+the posterior distribution of the value function closer to the assumed true preference model.
+4.4.
+Comparison of the variants of the proposed variational Bayesian inference approach
+with/without RT in high variance problem
+In this section, we compare the performance of the proposed variational Bayesian inference approach
+with and without RT and analyze the underlying causes of their differences. Our results show that
+while both variants exhibit similar trends across different problem settings (𝐹1, 𝐹2, 𝐹3), the variant
+with RT consistently outperforms the one without it. This aligns with expectations, as the latter
+suffers from high variance issues, leading to instability in gradient computation.
+To further examine RT’s role in variance reduction, we conducted an additional experiment,
+computing gradients 100 times per gradient ascent iteration for both variants and calculating their
+variance across dimensions. Results, averaged over iterations, problem settings, and dimensions,
+confirm that the variant with RT yields significantly lower gradient variance than its counterpart.
+
+===== PAGE 19 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+19
+For instance, in the first dataset, the median gradient variance for the RT variant is 0.02, compared
+to 7.35 without RT. These findings underscore RT’s effectiveness in stabilizing inference. For a
+more detailed presentation of results, including visualizations, see Online Appendix G.
+4.5.
+Summary of experiments on preference inference
+The experimental analysis demonstrates the superiority of the proposed variational Bayesian infer-
+ence approach with RT compared to the counterpart without RT and the SOR method. On the one
+hand, the variant of the proposed variational Bayesian inference approach with RT outperforms
+both the counterpart without RT and SOR in terms of ASP across different datasets and problem
+settings, including the diversity of the shape of the marginal value function, the number of pairwise
+comparisons, and the proportion of biased preference information. On the other hand, the experi-
+mental results show that the variant with RT effectively mitigates the high variance issue, leading
+to a more accurate inference of the DM’s preferences. These features make our approach easy to
+implement in practice and increase its potential to produce credible decision outcomes.
+5.
+Computational Experiments on Questioning Policy
+This section presents the results of applying the proposed questioning policy to the preference
+elicitation problem in the context of MCDA. We conduct a comprehensive evaluation to demonstrate
+the practical effectiveness of our approach in efficiently constructing the DM’s preference model.
+We begin by outlining the experimental design, including the evaluation metrics— 𝑓VAR, 𝑓PWI,
+and 𝑓RAI—used to assess the performance of the questioning policy. Additionally, we introduce the
+baseline methods employed for comparison: 𝐻PWI, 𝐻RAI, 𝐻PWI−2, 𝐻RAI−2, 𝐻DVF, and 𝐻RAND. We
+also describe the problem settings, considering variations in the number of alternatives and criteria.
+Due to space limitations, detailed descriptions are provided in Online Appendix H.
+Next, we present the experimental results, comparing our MCTS-based questioning policy with
+the six baseline approaches. Figure 3 presents the average values of the evaluation metrics 𝑓VAR, 𝑓PWI,
+and 𝑓RAI across all tested scenarios. As reported, our MCTS-based approach consistently achieves
+the lowest values for all three metrics, demonstrating its effectiveness in reducing uncertainty about
+the DM’s preferences through interactions. The results of the one-sided Wilcoxon test (available
+in Online Appendix I) further confirm the statistical superiority of our method. In contrast, the
+worst-performing baseline, 𝐻RAND, exhibits significantly higher metric values, underscoring the
+necessity of active exploration strategies in preference elicitation.
+
+===== PAGE 20 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+20
+Figure 3
+Average values of different metrics characterizing the uncertainty of the DM’s preferences with 7 ques-
+tioning policies.
+The following subsections provide a detailed analysis of the performance of these policies under
+varying numbers of alternatives and criteria, as well as an investigation into the impact of interaction
+rounds on the results.
+5.1.
+Performance analysis for different numbers of alternatives and criteria
+The results in Online Appendix J presenting the metrics 𝑓VAR, 𝑓PWI, and 𝑓RAI, which characterize
+the uncertainty in the DM’s preferences after 𝑠interactions guided by different questioning policies,
+show consistent trends across problem settings. Specifically, for problems involving 𝑛alternatives
+and 3 criteria, and problems with 8 alternatives and 𝑚criteria, where 𝑠∈2,4,6,8, 𝑛∈6,7,8,9,10,
+and 𝑚∈2,3,4,5, our MCTS-based policy consistently outperforms other methods. In contrast, the
+random strategy consistently underperforms.
+The performances of these seven methods have the same trend with the variation of the problem
+settings. As the number of alternatives increases, 𝑓RAI rises across all methods, reflecting greater
+uncertainty in ranking as more alternatives are added. However, 𝑓VAR and 𝑓PWI do not show a clear
+pattern in response to changes in the number of alternatives, as they measure posterior distribution
+variance and preference relation uncertainty, respectively, which are less sensitive to the number of
+alternatives. On the other hand, as the number of criteria increases, the performance of the seven
+questioning policies in terms of the three metrics does not exhibit a clear trend.
+5.2.
+Performance analysis for different numbers of interaction rounds
+The average values of 𝑓VAR, 𝑓PWI, and 𝑓RAI after 2, 4, 6, and 8 interactions with seven questioning
+policies illustrate how the number of interaction rounds affects the results. The observation is two-
+fold. On the one hand, as the number of interaction rounds increases, the results for all methods show
+a decline across all metrics. This aligns with the fact that more preference information reduces our
+uncertainty about the DM’s preferences. On the other hand, with more interactions, the advantages
+of our method become more pronounced in most problem settings. This is because our method
+
+===== PAGE 21 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+21
+employs a decision-time planning approach, which allocates the limited computational budget to
+rollouts that simulate sequences starting from the current state, allowing for careful consideration
+of the long-term impacts of decisions while still focusing on the current state. As a result, it
+mitigates the shortsightedness issue found in comparative methods, with this advantage becoming
+more evident as the number of interaction rounds increases. Detailed results are provided in Online
+Appendix J.
+5.3.
+Summary of experiments on questioning policy
+Based on the above results, it is evident that the proposed questioning policy consistently outper-
+forms the other comparative methods across most problem settings and evaluation metrics. This
+suggests that our questioning policy is more effective at reducing the uncertainty of the DM’s pref-
+erences within a limited number of interactions. Moreover, as the number of interactions increases,
+the advantages of our method become more pronounced. This demonstrates that our approach
+is well suited for considering the long-term impacts of current decisions, thereby alleviating the
+shortsightedness issue in other questioning strategies.
+6.
+Conclusions
+This paper focused on interactive preference construction problems, a critical domain where prefer-
+ences are incrementally elicited through structured interactions, enabling the construction of models
+that accurately represent user priorities. We introduced a novel framework for interactive elicitation
+of holistic pairwise comparisons, addressing key challenges in inferring preferences and design-
+ing efficient, adaptive questioning policies across diverse domains. Our essential methodological
+contribution is three-fold.
+First, we developed a variational Bayesian approach to infer real-time participants’ preferences.
+By framing preference inference within a Bayesian learning paradigm, we derived the posterior
+distribution of the preference model instead of opting to use a single deterministic model or
+assuming an arbitrary uniform distribution. This way, we effectively managed uncertainty from
+limited preference information and reduced cognitive biases, which is particularly valuable in the
+early stages of elicitation. Such an approach assures that the true preference model remains within
+consideration, even in the presence of inconsistencies. The use of variational inference enables rapid
+preference model updates, ensuring the process remains adaptive even to scenarios with extensive
+interactions and large state-action spaces, and is computationally efficient, particularly compared
+to traditional sampling-based methods.
+
+===== PAGE 22 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+22
+Second, we proposed an adaptive questioning policy that seeks to maximize the cumulative
+reduction in uncertainty over multiple interaction rounds. By modeling the process as a finite Markov
+decision problem and employing Monte Carlo Tree Search, the framework strategically selects
+questions to optimize information gain and significantly reduce uncertainty. To avoid exhaustively
+exploring the entire state-action space, it balances exploitation (selecting high-value questions
+based on current knowledge) and exploration (evaluating less certain options), mitigating the risk
+of short-sighted or myopic decisions. This aspect has been neglected in the vast majority of the
+existing questioning strategies. The novel definition of question value based on expected variance
+reduction directly aligns with the goal of refining the preference model, making the policy both
+intuitive and theoretically grounded. Moreover, integration with the efficient Bayesian inference
+method ensures that the search space is explored effectively, accelerating convergence toward the
+true preference model with minimal interaction rounds.
+Third, we applied the framework to the context of interactive elicitation of pairwise comparisons
+in Multiple Criteria Decision Aiding, emphasizing its practicality. Using an additive value function
+as the preference model, we addressed challenges of high variance in gradient estimation during
+variational Bayesian inference by incorporating the reparameterization trick from machine learning.
+This innovation enhances the robustness and computational efficiency of the inference process,
+enabling more accurate characterization of preferences in complex decision scenarios.
+The proposed framework was validated through extensive computational studies using real-world
+and synthetic datasets in MCDA contexts. Experimental results demonstrated the superiority of the
+variational Bayesian approach, particularly the variant with the reparameterization trick, in accu-
+rately capturing preferences. Specifically, the proposed adaptive questioning policy consistently
+surpassed baseline heuristics in reducing uncertainty within a limited number of interaction rounds.
+It also outperformed state-of-the-art methods, including the ones designed to mitigate shortsight-
+edness, across various problem settings, highlighting its robustness in different MCDA contexts.
+The performance advantage of the MCTS-based policy was more prominent as the number of
+interaction rounds increased, which can be justified by its ability to consider long-term decision
+impacts. Collectively, these results underline the practical utility of the framework, offering a robust
+and efficient solution for interactive preference elicitation in MCDA.
+Building on the advances presented in this paper, several promising research directions emerge
+for further enhancing the field of interactive preference elicitation. First, extending the proposed
+framework to handle dynamic and evolving preferences could open new avenues. Preferences may
+
+===== PAGE 23 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+23
+change over time, and developing adaptive mechanisms to detect and integrate such changes would
+enhance the robustness of preference models. Second, incorporating multi-modal data sources, such
+as textual feedback or behavioral analytics, could complement traditional pairwise comparisons,
+enabling richer preference modeling. This would be particularly valuable in domains like healthcare
+or user-centric AI systems, where implicit and explicit signals often co-exist. Another vital direction
+is the development of scalable algorithms for high-dimensional settings, such as scenarios with large
+numbers of alternatives and criteria. While the current framework incorporates computationally
+efficient techniques, further optimization or hybrid methods could address even more computation-
+ally intensive contexts, such as real-time recommendation systems or group decision-making with
+multiple stakeholders providing potentially conflicting inputs. Moreover, integrating explainability
+into the questioning policy and preference inference process is increasingly important, especially
+in critical domains like finance or public policy, where DMs need to understand the rationale
+behind recommendations or elicitation strategies. Lastly, integrating reinforcement learning tech-
+niques beyond MCTS, such as deep reinforcement learning or transfer learning, could improve the
+adaptability of questioning policies. This would allow continuous learning across sessions or users,
+further refining the model’s efficiency. Addressing these directions would advance the theoretical
+foundations of interactive preference elicitation and further enhance its applicability across diverse
+decision-making environments.
+Acknowledgments
+Jiapeng Liu acknowledges support from the National Natural Science Foundation of China (grant no. 72071155,
+72471184). Miłosz Kadziński was supported by the Polish National Science Center under the SONATA BIS project
+(grant no. DEC-2019/34/E/HS4/00045).
+References
+Blum, A., Jackson, J., Sandholm, T., and Zinkevich, M. (2004). Preference elicitation and query learning. Journal of
+Machine Learning Research, 5(Jun):649–667.
+Boutilier, C., Patrascu, R., Poupart, P., and Schuurmans, D. (2006). Constraint-based optimization and utility elicitation
+using the minimax decision criterion. Artificial Intelligence, 170(8-9):686–713.
+Bradley, R. A. and Terry, M. E. (1952). Rank analysis of incomplete block designs: I. the method of paired comparisons.
+Biometrika, 39(3/4):324–345.
+Browne, C. B., Powley, E., Whitehouse, D., Lucas, S. M., Cowling, P. I., Rohlfshagen, P., Tavener, S., Perez, D.,
+Samothrakis, S., and Colton, S. (2012). A survey of Monte Carlo tree search methods. IEEE Transactions on
+Computational Intelligence and AI in Games, 4(1):1–43.
+
+===== PAGE 24 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+24
+Cao, X. and Zhang, J. (2021). Preference learning and demand forecast. Marketing Science, 40(1):62–79.
+Christiano, P. F., Leike, J., Brown, T., Martic, M., Legg, S., and Amodei, D. (2017). Deep reinforcement learning from
+human preferences. Advances in neural information processing systems, 30.
+Ciomek, K., Kadziński, M., and Tervonen, T. (2017a). Heuristics for prioritizing pair-wise elicitation questions with
+additive multi-attribute value models. Omega, 71:27–45.
+Ciomek, K., Kadziński, M., and Tervonen, T. (2017b). Heuristics for selecting pair-wise elicitation questions in multiple
+criteria choice problems. European Journal of Operational Research, 262(2):693–707.
+Corrente, S., Greco, S., Kadziński, M., and Słowiński, R. (2013). Robust ordinal regression in preference learning and
+ranking. Machine Learning, 93:381–422.
+Delquié, P. (1993). Inconsistent trade-offs between attributes: New evidence in preference assessment biases. Man-
+agement Science, 39(11):1382–1395.
+Dew,
+R.
+(2024).
+Adaptive
+preference
+measurement
+with
+unstructured
+data.
+Management
+Science.
+https://doi.org/10.1287/mnsc.2023.03775.
+Dzyabura, D. and Hauser, J. R. (2011). Active machine learning for consideration heuristics. Marketing Science,
+30(5):801–819.
+Fishburn, P. C. and Kochenberger, G. A. (1979). Two-piece von Neumann-Morgenstern utility functions. Decision
+Sciences, 10(4):503–518.
+Gelman, A., Hwang, J., and Vehtari, A. (2014). Understanding predictive information criteria for Bayesian models.
+Statistics and computing, 24:997–1016.
+Ghaderi, M. and Kadziński, M. (2021). Incorporating uncovered structural patterns in value functions construction.
+Omega, 99:102203.
+Greco, S., Słowiński, R., and Wallenius, J. (2024).
+Fifty years of multiple criteria decision analysis:
+From classical methods to robust ordinal regression.
+European Journal of Operational Research.
+https://doi.org/10.1016/j.ejor.2024.07.038.
+Hogan, P. S., Chen, S. X., Teh, W. W., and Chib, V. S. (2020). Neural mechanisms underlying the effects of physical
+fatigue on effort-based choice. Nature Communications, 11(1):4026.
+Hu, X., Kang, S., Ren, L., and Zhu, S. (2024). Interactive preference analysis: A reinforcement learning framework.
+European Journal of Operational Research, 319(3):983–998.
+Joo, W., Lee, W., Park, S., and Moon, I.-C. (2020). Dirichlet variational autoencoder. Pattern Recognition, 107:107514.
+Kadziński, M. and Ciomek, K. (2021). Active learning strategies for interactive elicitation of assignment examples for
+threshold-based multiple criteria sorting. European Journal of Operational Research, 293(2):658–680.
+Kadziński, M., Ghaderi, M., Wąsikowski, J., and Agell, N. (2017). Expressiveness and robustness measures for the
+evaluation of an additive value function in multiple criteria preference disaggregation methods: An experimental
+analysis. Computers & Operations Research, 87:146–164.
+
+===== PAGE 25 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+25
+Kadziński, M. and Tervonen, T. (2013). Robust multi-criteria ranking with additive value models and holistic pair-wise
+preference statements. European Journal of Operational Research, 228(1):169–180.
+Keeney, R. L. and Raiffa, H. (1993). Decisions with multiple objectives: preferences and value trade-offs. Cambridge
+University Press.
+Kingma, D. P. and Welling, M. (2022). Auto-Encoding Variational Bayes. https://arxiv.org/abs/1312.6114.
+Kocsis, L. and Szepesvári, C. (2006).
+Bandit Based Monte-Carlo Planning.
+In Fürnkranz, J., Scheffer, T., and
+Spiliopoulou, M., editors, Machine Learning: ECML 2006, 17th European Conference on Machine Learning,
+Berlin, Germany, September 18-22, 2006, Proceedings, volume 4212 of Lecture Notes in Computer Science,
+pages 282–293. Springer.
+Li, X., Hartmann, W. R., and Amano, T. (2024). Preference Externality Estimators: A Comparison of Border Approaches
+and IVs. Management Science, 70(11):7892–7910.
+Liu, J., Kadziński, M., and Liao, X. (2023). Modeling contingent decision behavior: A Bayesian nonparametric
+preference-learning approach. INFORMS Journal on Computing, 35(4):764–785.
+Liu, J., Kadziński, M., Liao, X., and Mao, X. (2021). Data-driven preference learning methods for value-driven multiple
+criteria sorting with interacting criteria. INFORMS Journal on Computing, 33(2):586–606.
+Liu, J., Kadziński, M., Liao, X., Mao, X., and Wang, Y. (2020). A preference learning framework for multiple criteria
+sorting with diverse additive value models and valued assignment examples. European Journal of Operational
+Research, 286(3):963–985.
+Mohamed, S., Rosca, M., Figurnov, M., and Mnih, A. (2020). Monte Carlo gradient estimation in machine learning.
+Journal of Machine Learning Research, 21(132):1–62.
+Mousseau, V., Figueira, J., Dias, L., da Silva, C. G., and Clímaco, J. (2003). Resolving inconsistencies among constraints
+on the parameters of an MCDA model. European Journal of Operational Research, 147(1):72–93.
+Murphy, K. P. (2012). Machine learning: a probabilistic perspective. MIT Press, Cambridge, Massachusetts.
+Murphy, K. P. (2023). Probabilistic machine learning: Advanced topics. MIT Press.
+Paisley, J. W., Blei, D. M., and Jordan, M. I. (2012). Variational Bayesian Inference with Stochastic Search. In
+Proceedings of the 29th International Conference on Machine Learning, ICML 2012, Edinburgh, Scotland, UK,
+June 26 - July 1, 2012. icml.cc / Omnipress.
+Ran, Y., Liu, J., and Zhang, Y. (2023). Integrating users’ contextual engagements with their general preferences: An
+interpretable followee recommendation method. INFORMS journal on computing, 35(3):614–632.
+Rossi, P. E., Allenby, G. M., and McCulloch, R. (2012). Bayesian statistics and marketing. John Wiley & Sons, West
+Sussex, England.
+Ru, Z., Liu, J., Kadziński, M., and Liao, X. (2022). Bayesian ordinal regression for multiple criteria choice and ranking.
+European Journal of Operational Research, 299(2):600–620.
+
+===== PAGE 26 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+26
+Sauré, D. and Vielma, J. P. (2019). Ellipsoidal methods for adaptive choice-based conjoint analysis. Operations
+Research, 67(2):315–338.
+Schedl, M., Knees, P., McFee, B., and Bogdanov, D. (2021). Music recommendation systems: Techniques, use cases,
+and challenges. In Recommender systems handbook, pages 927–971. Springer.
+Silver, D., Huang, A., Maddison, C. J., Guez, A., Sifre, L., Van Den Driessche, G., Schrittwieser, J., Antonoglou, I.,
+Panneershelvam, V., Lanctot, M., et al. (2016). Mastering the game of Go with deep neural networks and tree
+search. Nature, 529(7587):484–489.
+Sutton, R. S. and Barto, A. G. (2018). Reinforcement learning: An introduction. MIT Press.
+Tervonen, T. and Lahdelma, R. (2007). Implementing stochastic multicriteria acceptability analysis. European Journal
+of Operational Research, 178(2):500–513.
+van Valkenhoef, G., Tervonen, T., and Postmus, D. (2014). Notes on ’hit-and-run enables efficient weight generation for
+simulation-based multiple criteria decision analysis’. European Journal of Operational Research, 239(3):865–
+867.
+Wang, W. and Benbasat, I. (2013). Research note—a contingency approach to investigating the effects of user-system
+interaction modes of online decision aids. Information Systems Research, 24(3):861–876.
+Yin, K., Fang, X., and Sheng, C. O. R. L. (2023). Diversity preference-aware link recommendation for online social
+networks. Information Systems Research, 34(4):1398–1414.
+
+===== PAGE 27 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+27
+Supplemental Material for "Preference Construction:
+A Bayesian Interactive Preference Elicitation
+Framework Based on Monte Carlo Tree Search"
+The supplementary material includes: a detailed presentation of the proposed Bayesian interactive preference
+elicitation framework (Appendix A), the derivation of the gradient of the ELBO function (Appendix B), an
+in-depth description of the implementation of the MCTS-based questioning policy (Appendix C), the process
+of approximating the value function model 𝑈(·) using piecewise-linear functions (Appendix D), a comprehen-
+sive explanation of the experimental design for the preference inference and questioning policy experiments
+(Appendices E and H), the results of the Wilcoxon test assessing the superiority of the RT-enhanced variational
+Bayesian preference inference method and the MCTS-based questioning policy over baseline methods (Appendices
+F and I), detailed computational results across different datasets for preference inference experiments (Appen-
+dices G), and visualized results of the computational experiments on the questioning policy (Appendices J).
+Appendix A:
+Bayesian Interactive Preference Elicitation Framework
+In this section, we describe the proposed Bayesian interactive preference elicitation framework depicted in Figure 4.
+Its phases are as follows:
+Step 1: Data Input. The procedure begins by defining the set of alternatives 𝐴= {𝑎1, . . . , 𝑎𝑛} and specifying the
+maximum number of interaction rounds 𝑇. Set a round indicator 𝑡= 1.
+Step 2: Preference inference. If 𝑡> 1, use the developed variational Bayesian approach to characterize the participant’s
+preferences based on the preference information 𝑄(𝑡−1) accumulated up to (𝑡−1)-th round and derive the posterior
+distribution 𝑝(𝑈| 𝑄(𝑡−1)) of the preference model 𝑈(·) (see Section 2.2). Otherwise, i.e., in the first round, let
+𝑄(𝑡−1) = ∅and set the posterior distribution 𝑝(𝑈| 𝑄(𝑡−1)) be equal to the prior 𝑝(𝑈) (i.e., 𝑝(𝑈| 𝑄(𝑡−1)) = 𝑝(𝑈)).
+Step 3: Checking stopping criterion. Check whether 𝑡= 𝑇. If so, go to step 5. Otherwise, go to step 4.
+Step 4: Acquiring new pairwise comparison from the participant. Apply the proposed MCTS-based questioning
+policy according to the derived posterior distribution 𝑝(𝑈| 𝑄(𝑡−1)) to select a new pair of alternatives (𝑎𝑖, 𝑎𝑗) (see
+Section 2.3). Present the new question (𝑎𝑖?𝑎𝑗) to the participant and ask him/her to make a pairwise comparison 𝑞(𝑡)
+in the form of either 𝑎𝑖≻𝑎𝑗or 𝑎𝑗≻𝑎𝑖. Collect the new pairwise comparison 𝑞(𝑡) and update the set of accumulated
+preference information pieces by 𝑄(𝑡) = 𝑄(𝑡−1) ∪{𝑞(𝑡)}. Let 𝑡= 𝑡+ 1 and go to step 2.
+Step 5: Results output. Output the preference information gathered throughout the whole procedure, represented as
+𝑄(𝑇), as well as the participant’s preference model described by the posterior distribution 𝑝(𝑈| 𝑄(𝑇)).
+
+===== PAGE 28 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+28
+Figure 4
+The proposed preference elicitation and model construction framework.
+Appendix B:
+Derivation of the Gradient of the ELBO Function
+In this section, we detail the derivation of the gradient calculations outlined in Section 2.2, which enables the utilization
+of stochastic gradient ascent methodology to maximize the Evidence Lower Bound (ELBO) function, thereby yielding
+the optimized posterior distribution parameters 𝜽. The gradient of the ELBO function 𝐿(𝜽) with respect to the
+
+===== PAGE 29 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+29
+variational parameter vector 𝜽can be derived as follows:
+∇𝜽𝐿(𝜽) = ∇𝜽
+∫
+𝑞(𝒖| 𝜽) log 𝑝(𝑄(𝑡), 𝒖| 𝜶)
+𝑞(𝒖| 𝜽)
+d𝒖
+= ∇𝜽
+∫
+𝑞(𝒖| 𝜽)[log 𝑝(𝑄(𝑡), 𝒖| 𝜶) −log 𝑞(𝒖| 𝜽)]d𝒖
+=
+∫
+∇𝜽{𝑞(𝒖| 𝜽)[log 𝑝(𝑄(𝑡), 𝒖| 𝜶) −log 𝑞(𝒖| 𝜽)]}d𝒖
+=
+∫
+[∇𝜽𝑞(𝒖| 𝜽)][log 𝑝(𝑄(𝑡), 𝒖| 𝜶) −log 𝑞(𝒖| 𝜽)]d𝒖
+|                                                                {z                                                                }
+term A
++
+∫
+𝑞(𝒖| 𝜽)∇𝜽[log 𝑝(𝑄(𝑡), 𝒖| 𝛼) −log 𝑞(𝒖| 𝜽)]d𝒖
+|                                                              {z                                                              }
+term B
+,
+(1)
+where
+term A =
+∫
+[∇𝜽𝑞(𝒖| 𝜽)][log 𝑝(𝑄(𝑡), 𝒖| 𝜶) −log 𝑞(𝒖| 𝜽)]d𝒖
+=
+∫
+[𝑞(𝒖| 𝜽)∇𝜽log 𝑞(𝒖| 𝜽)][log 𝑝(𝑄(𝑡), 𝒖| 𝜶) −log 𝑞(𝒖| 𝜽)]d𝒖
+=
+∫
+𝑞(𝒖| 𝜽)[∇𝜽log 𝑞(𝒖| 𝜽)][log 𝑝(𝑄(𝑡), 𝒖| 𝜶) −log 𝑞(𝒖| 𝜽)]d𝒖
+= E𝑞(𝒖|𝜽){[∇𝜽log 𝑞(𝒖| 𝜽)][log 𝑝(𝑄(𝑡), 𝒖| 𝜶) −log 𝑞(𝒖| 𝜽)]}
+= E𝑞(𝒖|𝜽){[∇𝜽log 𝑞(𝒖| 𝜽)][log 𝑝(𝑄(𝑡) | 𝒖) + log 𝑝(𝒖| 𝜶) −log 𝑞(𝒖| 𝜽)]},
+(2)
+and
+term B =
+∫
+𝑞(𝒖| 𝜽)∇𝜽[log 𝑝(𝑄(𝑡), 𝒖| 𝜶) −log 𝑞(𝒖| 𝜽)]d𝒖
+= −
+∫
+𝑞(𝒖| 𝜽)∇𝜽log 𝑞(𝒖| 𝜽)d𝒖
+= −
+∫
+∇𝜽𝑞(𝒖| 𝜽)d𝒖
+= −∇𝜽
+∫
+𝑞(𝒖| 𝜽)d𝒖
+= 0.
+(3)
+Thus, the gradient ∇𝜽𝐿(𝜽) can be formulated as follows:
+∇𝜽𝐿(𝜽) = E𝒖∼𝑞(𝒖|𝜽){[∇𝜽log 𝑞(𝒖| 𝜽)][log 𝑝(𝑄(𝑡) | 𝒖) + log 𝑝(𝒖| 𝜶) −log 𝑞(𝒖| 𝜽)]}.
+Appendix C:
+Monte Carlo Tree Search Algorithm
+This section provides a detailed description of the implementation of the MCTS-based questioning policy. When
+the interactive preference elicitation process proceeds to each round 𝑡, the questioning policy 𝜋 𝑄(𝑡−1) implements
+an MCTS procedure to execute as many iterations as possible before a new question is posed to the participant, by
+incrementally building a question tree whose root node represents the current state and child nodes signify candidate
+questions that can be posed. Each iteration consists of the four operations:
+• Selection. Starting in the root node, a child selection policy is recursively applied to traverse the tree, proceeding
+to the most urgent expandable node representing a particular question. In our context, a node is expandable if both the
+following two conditions are satisfied: (a) it is a non-terminal node, i.e., the number of the involved questions from the
+root node to it does not reach 𝑇−𝑡+ 1; (b) it has unexpanded children.
+• Expansion. One potential question is added as a child node of the selected expandable node to expand the question
+tree.
+• Simulation. A simulation is run from the new node to generate a complete sequence of 𝑇questions and calculate
+the final variance reduction scale as a return after posing the 𝑇questions.
+
+===== PAGE 30 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+30
+• Backpropagation. The simulation result is backpropagated through the nodes along the generated question
+sequence to update their statistics.
+The pseudocode for the questioning policy 𝜋 𝑄(𝑡−1) is presented in Algorithm 1. The 𝜋 𝑄(𝑡−1) function iteratively
+invokes the SELECTION&EXPANSION, SIMULATION, and BACKPROPAGATION functions to build a search tree
+until some predefined computational budget is reached. Computational budget is typically a time, memory, or iteration
+constraint (Browne et al. (2012)), and in this paper, we specify it as a maximum number of iterations. In building the
+search tree, each node 𝑛𝑜𝑑𝑒has two associated indicators: the total simulation reward 𝑉(𝑛𝑜𝑑𝑒) and the visit count
+𝑁(𝑛𝑜𝑑𝑒).
+The SELECTION&EXPANSION function combines the selection and expansion operations to find the most urgent
+expandable node in the following way: if node 𝑛𝑜𝑑𝑒is non-terminal and not fully expanded, choose one of its child
+nodes to expand the tree; if node 𝑛𝑜𝑑𝑒is non-terminal but fully expanded, recursively apply the BESTCHILD function
+to choose its best child until an expandable node is found. The BESTCHILD function determines how nodes in the tree
+are selected by treating the choice of the child node as a multi-armed bandit problem. Such a way effectively addresses
+the exploration-exploitation dilemma in MCTS by computing an Upper Confidence Bound (UCB) of child node 𝑛𝑜𝑑𝑒′
+as follows:
+𝑈𝐶𝐵(𝑛𝑜𝑑𝑒′) = 𝑉(𝑛𝑜𝑑𝑒′)
+𝑁(𝑛𝑜𝑑𝑒′) + 2𝐶𝑝
+√︄
+2ln 𝑁(𝑛𝑜𝑑𝑒0)
+𝑁(𝑛𝑜𝑑𝑒′)
+,
+(4)
+where 𝑁(𝑛𝑜𝑑𝑒′) and 𝑁(𝑛𝑜𝑑𝑒0), respectively, count the number of times the child node 𝑛𝑜𝑑𝑒′ and the root node
+𝑛𝑜𝑑𝑒0 have been visited, 𝑉(𝑛𝑜𝑑𝑒′) is the the total simulation reward through 𝑛𝑜𝑑𝑒′, and 𝐶𝑝is a constant (usually set as
+1
+.√
+2 (Kocsis and Szepesvári (2006))). For child node 𝑛𝑜𝑑𝑒′, the first (exploitation) term is derived by averaging the
+accumulated rewards approximated by Monte Carlo simulations, whereas the second term (exploration) gives a measure
+of the uncertainty or variance in the estimate of its reward. Therefore, UCB balances exploitation of the currently most
+promising node with an exploration of others, which may later turn out to be superior (Kocsis and Szepesvári (2006)).
+The SIMULATION function applies Monte Carlo simulations to estimate the reward of the selected node by predicting
+the participant’s preferences for unanswered questions in the constructed sequence of 𝑇questions and calculating
+the variance reduction scale. For each candidate question  𝑎𝑖?𝑎𝑗
+, we predict the participant’s preference in form of
+𝑎𝑖≻𝑎𝑗or 𝑎𝑗≻𝑎𝑖according to the posterior predictive probabilities 𝑝(𝑎𝑖≻𝑎𝑗| 𝑄(𝑡−1)) and 𝑝(𝑎𝑗≻𝑎𝑖| 𝑄(𝑡−1)). The
+BACKPROPAGATION function updates the statistics for the nodes along the trajectory, starting from the root node to
+the selected node, which informs node selection in the future.
+Finally, once the predefined computational budget is reached, the root’s child with the highest averaged reward will
+be chosen to indicate the corresponding question  𝑎𝑖?𝑎𝑗
+ to be posed in the 𝑡-th round. To sum up, the questioning
+policy 𝜋 𝑄(𝑡−1) is a decision-time planning algorithm by focusing more on the current state 𝑄(𝑡−1). It spends the
+computational budget to successively direct Monte Carlo simulations toward more highly rewarding trajectories and
+incrementally grows a lookup table to store each node’s reward. Thus, the questioning policy 𝜋 𝑄(𝑡−1) avoids the
+problem of globally approximating a reward function while retaining the benefit of using past experience to guide
+exploration.
+Algorithm 1 QUESTIONING POLICY 𝜋
+
+𝑄(𝑡−1)
+1: function 𝜋
+
+𝑄(𝑡−1)
+
+===== PAGE 31 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+31
+2:
+create root node 𝑛𝑜𝑑𝑒0 with state 𝑄(𝑡−1)
+3:
+𝑁(𝑛𝑜𝑑𝑒0) ←0
+4:
+𝑉(𝑛𝑜𝑑𝑒0) ←0
+5:
+while within computational budget do
+6:
+𝑛𝑜𝑑𝑒←SELECTION&EXPANSION(𝑛𝑜𝑑𝑒0)
+7:
+Δ ←SIMULATION(𝑛𝑜𝑑𝑒)
+8:
+BACKPROPAGATION(𝑛𝑜𝑑𝑒,Δ)
+9:
+end while
+10:
+return question  𝑎𝑖?𝑎𝑗
+ corresponding to node BESTCHILD(𝑛𝑜𝑑𝑒0,0)
+11: end function
+12: function SELECTION&EXPANSION(𝑛𝑜𝑑𝑒)
+13:
+while 𝑛𝑜𝑑𝑒is non-terminal do
+14:
+if 𝑛𝑜𝑑𝑒is not fully expanded then
+15:
+choose candidate question  𝑎𝑖?𝑎𝑗
+ that can be posed
+16:
+add question  𝑎𝑖?𝑎𝑗
+ as new child 𝑛𝑜𝑑𝑒′ to 𝑛𝑜𝑑𝑒
+17:
+𝑁(𝑛𝑜𝑑𝑒′) ←0
+18:
+𝑉(𝑛𝑜𝑑𝑒′) ←0
+19:
+return 𝑛𝑜𝑑𝑒′
+20:
+else
+21:
+𝑛𝑜𝑑𝑒←BESTCHILD(𝑛𝑜𝑑𝑒,𝐶𝑝)
+22:
+end if
+23:
+end while
+24:
+return 𝑛𝑜𝑑𝑒
+25: end function
+26: function BESTCHILD(𝑛𝑜𝑑𝑒, 𝑐)
+27:
+return argmax𝑛𝑜𝑑𝑒′∈children of 𝑛𝑜𝑑𝑒
+𝑉(𝑛𝑜𝑑𝑒′)
+𝑁(𝑛𝑜𝑑𝑒′) + 2𝑐
+√︃
+2ln 𝑁(𝑛𝑜𝑑𝑒0)
+𝑁(𝑛𝑜𝑑𝑒′)
+28: end function
+29: function SIMULATION(𝑛𝑜𝑑𝑒)
+30:
+Randomly choose candidate questions to form a sequence of 𝑇questions
+31:
+Predict participant’s preferences for unanswered questions
+32:
+Calculate reward as variance reduction scale after posing the sequence of 𝑇questions
+33:
+return reward for 𝑛𝑜𝑑𝑒
+34: end function
+35: function BACKPROPAGATION(𝑛𝑜𝑑𝑒,Δ)
+36:
+while 𝑛𝑜𝑑𝑒is not null do
+37:
+𝑁(𝑛𝑜𝑑𝑒) ←𝑁(𝑛𝑜𝑑𝑒) + 1
+38:
+𝑉(𝑛𝑜𝑑𝑒) ←𝑉(𝑛𝑜𝑑𝑒) + Δ
+39:
+𝑛𝑜𝑑𝑒←parent of 𝑛𝑜𝑑𝑒
+40:
+end while
+41: end function
+
+===== PAGE 32 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+32
+Appendix D:
+Approximating the Value Function Model 𝑈(·) Using Piecewise-Linear Functions
+In this section, we delve into the details of approximating the value function model 𝑈(·) with piecewise-linear marginal
+value functions. Let 𝑋𝑗= [𝛼𝑗, 𝛽𝑗] denote the performance scale on criterion 𝑔𝑗, where 𝛼𝑗and 𝛽𝑗represent the
+worst and best performances of all the alternatives in 𝐴on criterion 𝑔𝑗, respectively. To build a piecewise-linear
+marginal value function 𝑢𝑗(·), the interval 𝑋𝑗= [𝛼𝑗, 𝛽𝑗] is divided into 𝛾𝑗equal-length sub-intervals, represented as
+[𝑥0
+𝑗, 𝑥1
+𝑗], [𝑥1
+𝑗, 𝑥2
+𝑗], . . . , [𝑥𝛾𝑗−1
+𝑗
+,𝑥𝛾𝑗
+𝑗], where 𝑥𝑘
+𝑗= 𝛼𝑗+ 𝑘
+𝛾𝑗
+ 𝛽𝑗−𝛼𝑗
+, 𝑘= 0,1, . . . , 𝛾𝑗. Then, the marginal value of alternative
+𝑎𝑖on criterion 𝑔𝑗can be approximated through linear interpolation:
+𝑢𝑗
+ 𝑔𝑗(𝑎𝑖) =𝑢𝑗
+
+𝑥𝑘𝑗
+𝑗
+
++
+𝑔𝑗(𝑎𝑖) −𝑥𝑘𝑗
+𝑗
+𝑥𝑘𝑗+1
+𝑗
+−𝑥𝑘𝑗
+𝑗
+
+𝑢𝑗
+
+𝑥𝑘𝑗+1
+𝑗
+
+−𝑢𝑗
+
+𝑥𝑘𝑗
+𝑗
+
+,
+for 𝑔𝑗(𝑎𝑖) ∈
+h
+𝑥𝑘𝑗
+𝑗,𝑥𝑘𝑗+1
+𝑗
+i
+.
+According to the above formula, once the marginal values at knots (i.e., 𝑢𝑗
+
+𝑥0
+𝑗
+
+, 𝑢𝑗
+
+𝑥1
+𝑗
+
+, . . ., 𝑢𝑗
+
+𝑥𝛾𝑗
+𝑗
+
+) are determined,
+the marginal value function 𝑢𝑗(·) can be fully specified.
+Let Δ𝑢𝑘
+𝑗= 𝑢𝑗
+
+𝑥𝑘
+𝑗
+
+−𝑢𝑗
+
+𝑥𝑘−1
+𝑗
+
+denote the incremental difference between marginal values, 𝑘= 1, . . . , 𝛾𝑗. Then, the
+marginal value 𝑢𝑗(𝑔𝑗(𝑎)) can be reformulated as:
+𝑢𝑗
+ 𝑔𝑗(𝑎𝑖) =
+𝑘𝑗
+∑︁
+𝑘=1
+Δ𝑢𝑘
+𝑗+
+𝑔𝑗(𝑎𝑖) −𝑥𝑘𝑗
+𝑗
+𝑥𝑘𝑗+1
+𝑗
+−𝑥𝑘𝑗
+𝑗
+Δ𝑢𝑘𝑗+1
+𝑗
+,
+for 𝑔𝑗(𝑎𝑖) ∈
+h
+𝑥𝑘𝑗
+𝑗,𝑥𝑘𝑗+1
+𝑗
+i
+.
+To facilitate the following parameter inference, we can represent the marginal value 𝑢𝑗(𝑔𝑗(𝑎)) by the inner product of
+two vectors Δ𝒖𝑗=
+
+Δ𝑢1
+𝑗, . . . ,Δ𝑢𝛾𝑗
+𝑗
+T
+and 𝑽𝑗(𝑎) =
+
+𝑣1
+𝑗(𝑎𝑖) , . . . , 𝑣𝛾𝑗
+𝑗(𝑎𝑖)
+T
+as 𝑢𝑗
+ 𝑔𝑗(𝑎𝑖) = Δ𝒖T
+𝑗𝑽𝑗(𝑎𝑖), where 𝑣𝑘
+𝑗(𝑎𝑖)
+for each 𝑘= 1, ..., 𝛾𝑗is defined as
+𝑣𝑘
+𝑗(𝑎𝑖) =
+
+
+1,
+if 𝑔𝑗(𝑎𝑖) > 𝑥𝑘
+𝑗,
+𝑔𝑗(𝑎𝑖)−𝑥𝑘−1
+𝑗
+𝑥𝑘
+𝑗−𝑥𝑘−1
+𝑗
+, if 𝑥𝑘−1
+𝑗
+⩽𝑔𝑗(𝑎𝑖) ⩽𝑥𝑘
+𝑗,
+0,
+otherwise.
+Furthermore, let 𝒖=  Δ𝒖T
+1, . . . ,Δ𝒖T
+𝑚
+T ∈R𝛾and 𝑽(𝑎𝑖) =
+
+𝑽1 (𝑎𝑖)T , . . . ,𝑽𝑚(𝑎𝑖)TT
+∈R𝛾, such that 𝛾=
+𝑚Í
+𝑗=1
+𝛾𝑗is the
+dimensionality. Then, the comprehensive value of alternative 𝑎𝑖can be expressed as
+𝑈(𝑎𝑖) = 𝒖TV (𝑎𝑖) .
+Note that 𝒖is a parameter vector to signify the intrinsic character of the preference model 𝑈(·), and 𝑽(𝑎𝑖) is a
+characteristic vector that is fully determined by the performances of alternative 𝑎𝑖on multiple criteria, particularly
+irrelevant to the DM’s preferences. In other words, the DM’s preference model 𝑈(·) is parameterized by the preference
+vector 𝒖, and the following parameter inference procedure only needs to infer the vector 𝒖. Moreover, to ensure the
+monotonicity of the marginal value functions 𝑢𝑗(·) and normalize the comprehensive value 𝑈(·) within the interval
+[0,1], it’s essential to account for the following linear constraints:
+
+𝒖⩾0,
+1 · 𝒖= 1,
+
+===== PAGE 33 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+33
+where 1 and 0 are the vectors with all entries being equal to 1 and 0, respectively.
+The advantages of using piecewise-linear functions for approximating the DM’s true preference model consist of the
+following aspects. First, given a sufficient number of sub-intervals, a piecewise-linear function can approximate any
+form of a non-linear function (Liu et al. (2021)). This property enhances the flexibility and the expressiveness of such
+a preference model in representing the DM’s sophisticated preferences (Kadziński et al. (2017)). Moreover, the shape
+of a piecewise-linear marginal value function (e.g., linear, concave, or convex) reflects the DM’s risk attitude (e.g.,
+neutral, risk-averse, or risk-seeking) (Fishburn and Kochenberger (1979), Ghaderi and Kadziński (2021)). Also, using
+such functions is computationally tractable in a probabilistic inference procedure. Note that the number of sub-intervals
+on each criterion 𝛾𝑗are hyperparameters and can be specified using cross-validation.
+Appendix E:
+Experimental Design for Preference Inference Experiments
+In this section, we describe the detailed experimental design for preference inference experiments. We aim to assess the
+impact of both using the reparameterization trick that should enable more efficient optimization using gradient-based
+methods and avoiding arbitrary assumptions concerning the distribution in the space of preference models. Two variants
+of the proposed variational Bayesian inference approach are implemented: one with RT and the other without. We
+also compare these variants with the Stochastic Ordinal Regression (SOR) method (Kadziński and Tervonen (2013)),
+which infers a preference model by exploring the polyhedron defined by linear constraints derived from preference
+information. SOR assumes a uniform distribution over the space of compatible preference models and uses Monte
+Carlo simulation to compute the proportion of model instances confirming one alternative’s preference over another.
+The comparison between the proposed variational Bayesian approach and SOR is based on the Average Support of
+the inferred Pairwise Outranking Indices (ASP). ASP is defined as:
+𝐴𝑆𝑃=
+2
+𝑛(𝑛−1)
+𝑛
+∑︁
+𝑖=1
+𝑛
+∑︁
+𝑗=1 𝑗≠𝑖
+𝑃𝑂𝐼(𝑎𝑖, 𝑎𝑗) · I(𝑈𝑡𝑟𝑢𝑒(𝑎𝑖) ⩾𝑈𝑡𝑟𝑢𝑒(𝑎𝑗)),
+(5)
+where 𝑃𝑂𝐼(𝑎𝑖, 𝑎𝑗) is the share of sampled value functions where 𝑎𝑖is not worse than 𝑎𝑗, and I(𝑈𝑡𝑟𝑢𝑒(𝑎𝑖) ⩾𝑈𝑡𝑟𝑢𝑒(𝑎𝑗))
+equals 1 if𝑈𝑡𝑟𝑢𝑒(𝑎𝑖) ⩾𝑈𝑡𝑟𝑢𝑒(𝑎𝑗), and 0 otherwise. ASP measures the agreement between the true pairwise comparisons
+and those inferred by the method. The variational Bayesian approach and SOR sample from the posterior distribution
+and the polyhedron defined by linear constraints, respectively. ASP ranges from 0 to 1, with higher values indicating
+better performance.
+The real-world datasets used in this study are drawn from prior MCDA research in fields such as education, medicine,
+industry, and marketing, with sizes ranging from 14 to 118 alternatives and 3 to 8 criteria. A summary of these datasets
+is provided in Table 2. The experimental analysis is based on random data generated through Monte Carlo simulations,
+considering three factors: the shape of the marginal value function (𝐹1), the number of pairwise comparisons provided
+by the DM (𝐹2), and the proportion of biased preference information (𝐹3). These factors are closely linked to the
+inference of the preference model. The levels of these factors in the simulation are detailed in Table 3.
+To obtain insights based on the three factors delineated in Table 3, we assume the true preference models of
+20 DMs to generate the corresponding preference information for each combination of the factors presented in
+Table 3 (64 combinations). We adopt the procedure in Ghaderi and Kadziński (2021) to construct a value function
+𝑈𝑡𝑟𝑢𝑒(𝑎) = Í𝑚
+𝑗=1 𝑢𝑡𝑟𝑢𝑒
+𝑗
+(𝑔𝑗(𝑎)) serving as the DM’s true preference model. Initiating this process requires extracting a
+
+===== PAGE 34 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+34
+Table 2
+The characteristics of eight real-world datasets.
+No.
+Dataset
+Alt. No.
+Crit. No.
+No.
+Dataset
+Alt. No.
+Crit. No.
+1
+Thierrys’choice (TC)
+14
+5
+5
+Research units (RU)
+93
+4
+2
+Industry competitiveness (IC)
+31
+6
+6
+EIU best cities (EBC)
+70
+7
+3
+Student selection (SS)
+76
+6
+7
+potential index (MPI)
+86
+8
+4
+Couple’s embryos (CE)
+51
+7
+8
+Guardian UK universities (GUU)
+118
+8
+Table 3
+Levels for the considered factors in the simulation.
+Factors
+Levels
+𝐹1: the shape of marginal value function
+linear, concave, convex, mixture
+𝐹2: the number of pairwise comparisons
+20, 40, 60, 80
+𝐹3: the proportion of biased preference information
+0, 10%, 20%, 30%
+criteria weight vector, 𝒘= (𝑤1, . . . , 𝑤𝑚)𝑇, from a Dirichlet distribution characterized by the parameter vector whose
+all entries are equal to one. This step guarantees that each criterion weight 𝑤𝑗is positive and their total sum equals
+one. Subsequently, the simulation of each criterion’s marginal value function 𝑢𝑡𝑟𝑢𝑒
+𝑗
+(·), distinguished by its shape (F1),
+adheres to the following paradigm:
+𝑢𝑡𝑟𝑢𝑒
+𝑗
+(𝑥) =
+(
+𝑤𝑗𝑥,
+for a linear 𝑢𝑡𝑟𝑢𝑒
+𝑗
+(·),
+𝑤𝑗
+1−exp(−𝑐𝑗𝑥)
+1−exp(−𝑐𝑗) ,
+for a concave or convex 𝑢𝑡𝑟𝑢𝑒
+𝑗
+(·).
+(6)
+The parameter 𝑐𝑗, nonzero and randomly sampled from the interval [−10,10] under a uniform distribution, governs
+the curvature of 𝑢𝑡𝑟𝑢𝑒
+𝑗
+(·). A positive (negative) 𝑐𝑗indicates a concave (convex) form for 𝑢𝑡𝑟𝑢𝑒
+𝑗
+(·), reflecting the DM’s
+risk attitude concerning criterion 𝑔𝑗, in accordance with the insights provided by Ghaderi and Kadziński (2021).
+Regarding factor 𝐹1, we contemplate four potential shapes: linear, concave, convex, and a hybrid, which we denominate
+as a mixture. The mixture involves a random selection among the other three forms for constructing the marginal value
+functions.
+Then, the assumed true preference model of the DM, 𝑈𝑡𝑟𝑢𝑒(·), is employed to generate the preference information.
+Specifically, we utilize the true value function 𝑈𝑡𝑟𝑢𝑒(𝑎) to calculate a true comprehensive value for each alternative
+𝑎∈𝐴. Subsequently, we select a predefined number of pairwise comparisons (𝐹2) in accordance with the true preference
+relations among alternatives to form the preference information. In the experiment, a certain proportion (𝐹3) of biased
+preference information is also taken into consideration. To generate such data, we sort all potential pairs of alternatives
+based on the difference between their true comprehensive values as indicated by 𝑈𝑡𝑟𝑢𝑒(·). We then select a certain
+proportion (0%, 10%, 20%, 30%) of pairs with the smallest value differences and invert their preference relations.
+This setting is reasonable, as DMs in real situations are more likely to provide inverse pairwise comparisons for pairs
+of alternatives with negligible value differences. Bias introduced by inverting the true preference relations which may
+result in no value function being fully compatible with all comparisons. Consequently, SOR becomes inapplicable in its
+standard form. To address this, we incorporate the inconsistency resolution method from Mousseau et al. (2003), which
+identifies and removes constraints likely causing inconsistencies. In contrast, our Bayesian approach, which assigns
+probabilities to all possible preference models, inherently accommodates such inconsistencies without modification.
+In the proposed variational Bayesian inference approach with/without RT and SOR, two key parameters must be
+set: (1) the number of sub-intervals 𝛾𝑗for each criterion 𝑔𝑗( 𝑗= 1, . . . , 𝑚), and (2) the number of samples 𝑊for
+approximating the posterior distribution in the variational Bayesian approach. For simplicity, we assume all criteria
+
+===== PAGE 35 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+35
+have the same number of sub-intervals. We determine the optimal 𝛾𝑗using the Deviance Information Criterion (DIC)
+(Gelman et al. (2014)), with values 1, 2, 3, 4, 5. DIC balances model performance and complexity, which is commonly
+used in Bayesian model selection. We set 𝑊= 10,000, as this is sufficient for posterior approximation (Tervonen and
+Lahdelma (2007)). In the variational Bayesian method, additional parameters are also necessary to be determined:
+the maximum number of iterations 𝑇, the number of samples 𝑊𝑔for calculating the stochastic gradient, and the
+hyperparameters for the Adam optimizer (learning rate 𝜂, exponential decay rates for moment estimates 𝛽1 and 𝛽2, and
+a small constant 𝜖to avoid division by zero). Based on experimental testing, we set the following values to balance
+inference accuracy with computational cost: 𝑇= 500, 𝑊𝑔= 10,000, 𝜂= 0.01, 𝛽1 = 0.9, 𝛽2 = 0.999, and 𝜖= 10−8. We
+implement SOR using R’s open-source package hit-and-run (Tervonen and Lahdelma (2007)).
+Appendix F:
+Wilcoxon Test for Preference Inference Experiments
+The results in Section 4 show that the RT-enabled variant consistently achieves higher ASP values than both its non-RT
+counterpart and the SOR method. To assess the statistical significance of these findings, we conducted a Wilcoxon
+test comparing the ASP values of the proposed variational Bayesian inference approach with RT against the other two
+methods. As presented in Table 4, the 𝑝-values for nearly all datasets are below 0.001, confirming that our RT-based
+approach significantly outperforms the alternatives.
+Table 4
+Wilcoxon Test on ASP for the Proposed Variational Bayesian Inference Approach with RT vs. Other Two
+Methods
+Method
+Comparison
+Dataset
+TC
+IC
+SS
+CE
+RU
+EBC
+MPI
+GUU
+RT vs. No RT
+statistic
+895,340
+848,923
+915,079
+967,135
+956,578
+926,460
+910,440
+921,789
+𝑝-value
+4.665e-05
+1.119e-01
+2.938e-07
+2.548e-15
+2.031e-13
+9.690e-09
+1.065e-06
+4.105e-08
+RT vs. SOR
+statistic
+947,991
+1,006,954
+976,260
+925,663
+956,478
+886,898
+903,802
+911,814
+𝑝-value
+5.679e-12
+1.010e-23
+4.494e-17
+1.245e-08
+2.115e-13
+2.942e-04
+6.059e-06
+7.315e-07
+Appendix G:
+Comprehensive Computational Results Across Different Datasets for Preference
+Inference Experiments
+In this section, we provide a detailed presentation of the computational results across different datasets and experimental
+settings for the preference inference experiments.
+G.1.
+Performance analysis for different shapes of marginal value functions
+In this section, we provide a detailed analysis of the experiments considering different shapes of marginal value
+functions across various datasets. Figure 5 presents boxplots for the average ASP values, characterizing the ability to
+infer DMs’ preferences using the variants of the proposed variational Bayesian inference approach with/without RT
+and the SOR method. Note that the solid line represents the median of the dataset, while the dashed line indicates the
+mean.
+By examining the mean and median values, it is evident that the proposed method consistently outperforms the
+other two methods regardless of the form of the marginal value function. This advantage remains across all four types
+of marginal value functions. Additionally, the figures demonstrate that the results obtained by the two variants of
+
+===== PAGE 36 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+36
+Figure 5
+Average ASP for the variants of the proposed variational Bayesian inference approach with/without RT
+and SOR, considering different shapes of marginal value functions across various datasets.
+the proposed variational Bayesian inference approach are more concentrated, indicating a more stable performance
+in inferring DMs’ preferences. Finally, the ASP values for all three preference inference methods are higher when
+the marginal value function is linear compared to the other three non-linear forms. This trend is reasonable because
+we approximate the true marginal value function using the piecewise linear form. Simpler functions require fewer
+sub-intervals and parameters, making them easier to estimate. Conversely, more complex functions necessitate more
+sub-intervals and parameters for accurate approximation, making the estimation process more challenging.
+G.2.
+Performance analysis for different numbers of pairwise comparisons
+This section discusses the results of experiments involving varying amounts of preference information. We compare
+the variants of the proposed variational Bayesian inference approach with/without RT and SOR, given {20,40,60,80}
+pairwise comparisons. As shown in Figure 6, with the increase in the number of pairwise comparisons, there is a gradual
+improvement in the performance of all three methods. Additional preference information reduces the uncertainty in
+inferring the DM’s preference model. The performance of SOR relies more heavily on the amount of preference
+information compared to our variational Bayesian methods. This disparity stems from the intrinsic characteristics of the
+two approaches. SOR translates the given preference information into linear constraints and explores a set of compatible
+value functions within the feasible region. Consequently, additional preference information reduces the volume of the
+feasible region, thereby decreasing the uncertainty in inferring the DM’s preference model. In contrast, our approach
+models the given preference information from a probabilistic perspective and accounts for the differences between
+instances of value functions. As a result, even with a small amount of preference information, our method infers a
+concentrated posterior distribution of the value function, reducing the uncertainty in exploring the DM’s preferences.
+However, as shown in Figure 6, the ASP values derived by the SOR method actually decrease when the amount
+of preference information increases from 60 to 80 for the first two datasets (TC and IC). This abnormal result arises
+because, as the number of preference information increases, the amount of biased preference inputs also proportionally
+increases. The SOR method, which infers the preference model based on feasible regions defined by linear constraints
+
+===== PAGE 37 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+37
+constructed from preference information, is significantly affected by biased preference information as it can exclude
+the true preference model from the feasible region. In contrast, our method models preferences from a probabilistic
+perspective, assigning probabilities to all possible preference models and thus preventing the direct exclusion of the
+true preference model due to biased information. Appendix G.3 provides more direct evidence for this point. Moreover,
+as the amount of accurate preference information increases, it helps to correct the impact of biased data, which is
+consistent with the conclusions drawn from Figure 6.
+Figure 6
+Average ASP for the variants of the proposed variational Bayesian inference approach with/without RT
+and SOR, considering different numbers of pairwise comparisons across various datasets.
+G.3.
+Performance analysis for different proportions of biased preference information
+In this section, we examine the performance of the variants of the proposed variational Bayesian inference approach
+with/without RT and SOR with biased preference information. Figure 7 summarizes the average ASP for the three
+methods considering different proportions of biased preference information across various datasets. The observations
+can be summarized from the following two aspects. On the one hand, as the proportion of biased preference information
+increases, the performance of all three methods declines, which is in line with our expectations. This is because an
+increase in biased preference information causes the posterior distribution of the value function to diverge from the
+true preference model 𝑈𝑡𝑟𝑢𝑒(𝑎) for the proposed Bayesian methods. As for SOR, it causes the feasible region of the
+preference model to be wrongly restricted. On the other hand, the magnitude of the decline in ASP with increasing
+biased preference information is less significant with our approach compared to SOR, indicating that the proposed
+variational Bayesian approach exhibits greater robustness to biased preference information. The reason is that our
+method assigns probabilities to all potential value function models, ensuring that the actual DM’s preference model
+remains within the consideration set despite the presence of biased information. Moreover, by modeling the provided
+preferences from a probabilistic perspective, our approach ensures that even if a small proportion of comparisons is
+biased, the majority of consistent preference information will guide the posterior distribution of the value function
+closer to the assumed true preference model (Ru et al. (2022)).
+
+===== PAGE 38 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+38
+Figure 7
+Average ASP for the variants of the proposed variational Bayesian inference approach with/without RT
+and SOR, considering different proportions of biased preference information across various datasets.
+G.4.
+Comparison of the variants of the proposed variational Bayesian inference approach with/without RT in
+high variance problem
+In this section, we compare the performance of the variants of the proposed variational Bayesian inference approach
+with/without RT and analyze the underlying reasons. Figure 5, 6, and 7 illustrate that the ASP values obtained by the two
+variants exhibit similar trends across different problem settings (𝐹1, 𝐹2, 𝐹3). However, the variant with RT consistently
+outperforms the counterpart without RT. This aligns with our expectation, as the counterpart without RT is susceptible
+to high variance issues, leading to significant instability in gradient computation. To further investigate the effectiveness
+of RT in mitigating high variance, we conducted an additional experiment. In this experiment, we performed gradient
+computations 100 times for each iteration of gradient ascent for both variants. We then calculated the variance of these
+100 gradients for each dimension. To present the results more intuitively, we averaged the variances across different
+numbers of iterations, problem settings, and dimensions.
+The final averaged results for various datasets are shown in Figure 8. In the box plots, the dashed lines represent the
+mean values, while the solid lines indicate the medians. Note that since the results obtained from the variant with RT
+are substantially smaller than those from the counterpart without RT (for example, in the first dataset, the median for
+the results of the variant with RT is 0.02, compared to 7.35 for the counterpart without RT), we have used separate
+y-axes on the left and right sides of the plot to display both sets of results in one figure. From this outcome, it can
+be discerned that the gradient variance computed by the variant with RT is considerably lower than the counterpart
+without RT, thereby explaining the effect of the RT in enhancing the inference performance.
+Appendix H:
+Experimental Design for Questioning Policy Experiments
+In this section, we describe the detailed experimental design for questioning policy experiments.
+We consider an iterative question-answer process for preference elicitation in MCDA. In this process, the proposed
+questioning policy based on MCTS is used to select the optimal question during each round of interaction, leveraging
+
+===== PAGE 39 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+39
+Figure 8
+The gradient variance of the variant with RT and the counterpart without RT on each dataset.
+the preference information gathered from previous interactions. The objective of the questioning policy is to collect
+the most informative preference data from the DM within a constrained number of interaction rounds.
+We assess the sufficiency of the elicited preference information by measuring the uncertainty regarding the DM’s
+preferences at the end of the questioning process. Lower uncertainty indicates more comprehensive preference infor-
+mation, while higher residual uncertainty suggests fewer insights. To quantify uncertainty reduction after multiple
+interactions, we use the following typical metrics based on the variational Bayesian approach introduced in Section
+2.2:
+• 𝑓VAR, which is the variance of the posterior distribution derived from the variant of the proposed variational
+approach with RT given the preference information obtained after a limited number of interactions.
+• 𝑓PWI, which quantifies the uncertainty for all pairs of alternatives based on the given preference information
+obtained through the interactions and is built on the pairwise winning index (PWI) (see Ciomek et al. (2017a)). The
+pairwise winning index PWI𝑄(𝑎𝑖, 𝑎𝑗) represents the share of value functions sampled from the posterior distribution
+derived through the variant of the proposed variational approach with RT, given the preference information 𝑄, in
+which 𝑎𝑖is preferred to 𝑎𝑗. As such, PWI𝑄(𝑎𝑖, 𝑎𝑗) reflects the probability of 𝑎𝑖≻𝑎𝑗given preference information
+𝑄. Consequently, for any (𝑎𝑖, 𝑎𝑗) ∈𝐴× 𝐴: PWI𝑄(𝑎𝑖, 𝑎𝑗) ∈[0,1] and PWI𝑄(𝑎𝑖, 𝑎𝑗) + PWI𝑄(𝑎𝑗, 𝑎𝑖) ≤1. The index
+PWI𝑄(𝑎𝑖, 𝑎𝑗) is usually estimated using Monte Carlo simulation (van Valkenhoef et al. (2014)). Then, the metric 𝑓PWI
+can be computed through the concept of Shannon entropy:
+𝑓PWI(𝑄) =
+∑︁
+(𝑎𝑖,𝑎𝑗)∈𝐴×𝐴,𝑖≠𝑗
+−PWI𝑄(𝑎𝑖, 𝑎𝑗) log2 PWI𝑄(𝑎𝑖, 𝑎𝑗)
+𝑛· (𝑛−1)
+.
+(7)
+• 𝑓RAI, which quantifies the uncertainty in the ranks attained by all alternatives based on the preference information
+obtained through the interactions and is built on the rank acceptability index (RAI) (see Ciomek et al. (2017a)). The
+rank acceptability index RAI𝑄(𝑎𝑖, 𝑘) ∈[0,1] represents the proportion of value functions sampled from the posterior
+distribution derived through the variant of the proposed variational approach with RT given the preference information
+𝑄, that assign alternative 𝑎the rank 𝑘. Similar to the pairwise winning index, RAI𝑄(𝑎𝑖, 𝑘) is usually estimated using
+Monte Carlo simulation, reflecting the probability that 𝑎𝑖attains the 𝑘-th rank. For each 𝑎𝑖∈𝐴, Í𝑛
+𝑘=1 RAI𝑄(𝑎𝑖, 𝑘) = 1
+holds. Then, the measure 𝑓RAI can be computed through the concept of entropy:
+𝑓RAI(𝑄) =
+𝑛
+∑︁
+𝑖=1
+𝑛
+∑︁
+𝑘=1
+−RAI𝑄(𝑎𝑖, 𝑘) log2 RAI𝑄(𝑎𝑖, 𝑘)
+𝑛
+.
+(8)
+
+===== PAGE 40 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+40
+We compared the MCTS-based questioning policy in our approach with those from existing studies (Ciomek et al.
+(2017a)): two heuristics for selecting the myopically optimal pairwise question (𝐻PWI and 𝐻RAI), their extensions
+that utilize greater search depths (𝐻PWI−2 and 𝐻RAI−2), the benchmark method 𝐻DVF, and a random selection policy,
+denoted as 𝐻RAND. Note that for all questioning policies, the next question must be selected from those that have not
+been previously asked, which we refer to as candidate questions. The details of these comparative questioning policies
+are described as follows:
+• 𝐻PWI and 𝐻RAI choose the question that maximizes the estimated reduction in pairwise preference entropy and
+rank-related entropy, respectively, given preference information 𝑄as the next best question, which can be formulated
+as follows:
+𝐻X(𝑄) =
+argmax
+(𝑎𝑖?𝑎𝑗)∈Candidate Questions
+( PWI𝑄(𝑎𝑖, 𝑎𝑗)( 𝑓X(𝑄(𝑡−1)) −𝑓X(𝑄∪{𝑎𝑖, 𝑎𝑗}))
+PWI𝑄(𝑎𝑖, 𝑎𝑗) + PWI𝑄(𝑎𝑗, 𝑎𝑖)
++
+PWI𝑄(𝑎𝑗, 𝑎𝑖)( 𝑓X(𝑄) −𝑓X(𝑄∪{𝑎𝑖, 𝑎𝑗}))
+PWI𝑄(𝑎𝑖, 𝑎𝑗) + PWI𝑄(𝑎𝑗, 𝑎𝑖)
+),
+(9)
+where 𝑋∈{PWI,RAI}.
+• 𝐻PWI−𝑑and 𝐻RAI−𝑑extent 𝐻PWI and 𝐻RAI to the greater search depths, which alleviates the problem of short-
+sightedness to some extent. The generalization of a heuristic 𝐻𝑋−𝑑to use search depth 𝑑can be formulated as
+follows:
+𝐻X−𝑑(𝑄) =
+argmax
+(𝑎𝑖?𝑎𝑗)∈Candidate Questions
+( PWI𝑄(𝑎𝑖, 𝑎𝑗)𝑣(𝑄∪{𝑎𝑖, 𝑎𝑗}, ˜𝑓X, 𝑑−1)
+PWI𝑄(𝑎𝑖, 𝑎𝑗) + PWI𝑄(𝑎𝑗, 𝑎𝑖)
++
+PWI𝑄(𝑎𝑗, 𝑎𝑖)𝑣(𝑄∪{𝑎𝑗, 𝑎𝑖}, ˜𝑓X, 𝑑−1)
+PWI𝑄(𝑎𝑖, 𝑎𝑗) + PWI𝑄(𝑎𝑗, 𝑎𝑖)
+),
+(10)
+where
+𝑣(𝑄, ˜𝑓𝑋,𝑡) =
+
+
+−˜𝑓𝑋(𝑄),
+if 𝑡= 0,
+max
+(𝑎𝑖?𝑎𝑗)∈Candidate Questions( PWI𝑄(𝑎𝑖, 𝑎𝑗)𝑣(𝑄∪{𝑎𝑖, 𝑎𝑗}, ˜𝑓X,𝑡−1)
+PWI𝑄(𝑎𝑖, 𝑎𝑗) + PWI𝑄(𝑎𝑗, 𝑎𝑖)
++
+PWI𝑄(𝑎𝑗, 𝑎𝑖)𝑣(𝑄∪{𝑎𝑗, 𝑎𝑖}, ˜𝑓X,𝑡−1)
+PWI𝑄(𝑎𝑖, 𝑎𝑗) + PWI𝑄(𝑎𝑗, 𝑎𝑖)
+),
+otherwise,
+(11)
+and 𝑋∈{PWI,RAI}. Considering the factor of computational efficiency, we only compared the case where 𝑑= 2.
+• 𝐻DVF accounts for the distribution of compatible value functions, splitting their polyhedron as evenly as possible
+based on PWIs. This corresponds to choosing the question {𝑎𝑖?𝑎𝑗} for which the minimal pairwise winning index out
+of PWI𝑄(𝑎𝑖, 𝑎𝑗) and PWI𝑄(𝑎𝑗, 𝑎𝑖) is maximal:
+𝐻DVF(𝑄) =
+argmax
+(𝑎𝑖?𝑎𝑗)∈Candidate Questions
+min{PWI𝑄(𝑎𝑖, 𝑎𝑗),PWI𝑄(𝑎𝑗, 𝑎𝑖)}.
+(12)
+• 𝐻RAND randomly selects the next interactive question from the pool of candidate questions.
+Then, we compare the MCTS-based questioning policy in our approach with 𝐻𝑋−𝑑for 𝑋∈{PWI,RAI}, 𝑑∈{1,2},
+𝐻DVF and 𝐻RAND in terms of above three metrics for the following problem instances:
+• 6 −10 alternatives with 3 criteria;
+• 2 −5 criteria with 8 alternatives.
+For each problem setting, we construct 20 instances by drawing the performance of alternatives on each criterion
+from a uniform distribution in [0, 1]. A problem instance for each dataset is created using the procedure in Appendix
+E to randomly generate a value function model 𝑈𝑡𝑟𝑢𝑒(𝑎) = Í𝑚
+𝑗=1 𝑢𝑡𝑟𝑢𝑒
+𝑗
+(𝑔𝑗(𝑎)) as the DM’s preference model. For
+
+===== PAGE 41 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+41
+Table 5
+Results (𝑝-values) of the Wilcoxon signed-rank test for the significance of differences in the average
+values of 𝑓VAR, 𝑓PWI, and 𝑓RAI between different pairs of questioning policies, based on the performance across 640
+instances (values denoted as 0.000+ indicate a small positive value less than 0.001; the numbers in parentheses
+represent the number of instances where the questioning policy in the row yields a strictly lower value compared to
+the policy in the column).
+Metric
+Questioning policy
+Our approach
+𝐻PWI
+𝐻RAI
+𝐻PWI−2
+𝐻RAI−2
+𝐻DVF
+𝐻RAND
+𝑓VAR
+Our approach
+-
+0.000+ (466)
+0.000+ (477)
+0.000+ (465)
+0.000+ (471)
+0.000+ (474)
+0.000+ (588)
+𝐻PWI
+1.000 (174)
+-
+0.000+ (364)
+0.089 (328)
+0.001 (360)
+0.001 (345)
+0.000+ (544)
+𝐻RAI
+1.000 (163)
+1.000 (276)
+-
+0.985 (290)
+0.897 (295)
+0.428 (309)
+0.000+ (525)
+𝐻PWI−2
+1.000 (175)
+0.911 (312)
+0.015 (350)
+-
+0.031 (341)
+0.042 (336)
+0.000+ (538)
+𝐻RAI−2
+1.000 (169)
+0.999 (280)
+0.103 (345)
+0.969 (299)
+-
+0.167 (332)
+0.000+ (534)
+𝐻DVF
+1.000 (163)
+0.999 (295)
+0.572 (331)
+0.958 (304)
+0.833 (308)
+-
+0.000+ (521)
+𝐻RAND
+1.000 (52)
+1.000 (96)
+1.000 (115)
+1.000 (102)
+1.000 (106)
+1.000 (119)
+-
+𝑓PWI
+Our approach
+-
+0.000+ (408)
+0.000+ (430)
+0.000+ (419)
+0.000+ (429)
+0.000+ (434)
+0.000+ (524)
+𝐻PWI
+1.000 (232)
+-
+0.000+ (350)
+0.009 (350)
+0.000+ (359)
+0.000+ (361)
+0.000+ (485)
+𝐻RAI
+1.000 (210)
+1.000 (290)
+-
+0.999 (290)
+0.914 (295)
+0.912 (298)
+0.000+ (446)
+𝐻PWI−2
+1.000 (221)
+0.991 (290)
+0.001 (350)
+-
+0.004 (349)
+0.045 (339)
+0.000+ (456)
+𝐻RAI−2
+1.000 (211)
+1.000 (281)
+0.086 (345)
+0.996 (291)
+-
+0.637 (313)
+0.000+ (444)
+𝐻DVF
+1.000 (203)
+1.000 (279)
+0.088 (342)
+0.955 (301)
+0.363 (327)
+-
+0.000+ (444)
+𝐻RAND
+1.000 (116)
+1.000 (155)
+1.000 (194)
+1.000 (184)
+1.000 (196)
+1.000 (196)
+-
+𝑓RAI
+Our approach
+-
+0.000+ (414)
+0.000+ (429)
+0.000+ (406)
+0.000+ (421)
+0.000+ (420)
+0.000+ (518)
+𝐻PWI
+1.000 (226)
+-
+0.000+ (344)
+0.024 (333)
+0.000+ (347)
+0.000+ (362)
+0.000+ (481)
+𝐻RAI
+1.000 (211)
+1.000 (296)
+-
+0.994 (308)
+0.855 (289)
+0.871 (304)
+0.000+ (446)
+𝐻PWI−2
+1.000 (234)
+0.976 (307)
+0.006 (332)
+-
+0.018 (346)
+0.097 (333)
+0.000+ (452)
+𝐻RAI−2
+1.000 (219)
+1.000 (293)
+0.145 (351)
+0.982 (294)
+-
+0.622 (312)
+0.000+ (437)
+𝐻DVF
+1.000 (217)
+1.000 (278)
+0.129 (336)
+0.903 (307)
+0.378 (328)
+-
+0.000+ (442)
+𝐻RAND
+1.000 (122)
+1.000 (159)
+1.000 (194)
+1.000 (188)
+1.000 (203)
+1.000 (198)
+-
+simplicity, we assume all criteria have the same number of sub-intervals and use cross-validation to determine 𝛾. In the
+MCTS-based questioning policy, we balance computational efficiency with adequate exploration of the question space.
+Experimental tests showed that a computation budget below 500 kept computation time reasonable, and increasing it
+beyond 300 did not significantly improve performance but added computational burden. Therefore, we set the budget
+at 300 for the experimental study. For each problem instance, we used these questioning policies to ask 𝑠questions,
+𝑠∈2,4,6,8, resulting in performance analysis over 720 interactive processes.
+Appendix I:
+Wilcoxon Test for Questioning Policy Experiments
+The results in Section 5 demonstrate that our MCTS-based questioning policy consistently achieves the lowest values
+across all three evaluation metrics ( 𝑓VAR, 𝑓PWI, and 𝑓RAI) highlighting its effectiveness in reducing uncertainty in prefer-
+ence inference. Statistical validation through the one-sided Wilcoxon test (Table 5) further confirms the superiority of
+our approach. In contrast, the worst-performing method, 𝐻RAND, yields significantly higher metric values, emphasizing
+the critical role of active exploration strategies in efficient preference elicitation.
+Appendix J:
+Visualized Results of the Computational Experiments on the Questioning Policy
+This section provide a detailed visualization of the performance of the proposed questioning policy and baseline
+policies under varying numbers of alternatives, criteria, and interaction rounds.
+J.1.
+Performance analysis for different numbers of alternatives and criteria
+Figures 9 and 10 present the results of the three metrics 𝑓VAR, 𝑓PWI, and 𝑓RAI, characterizing the uncertainty of the DM’s
+preferences after 𝑠interactions guided by the different questioning policies, for problems involving 𝑛alternatives and
+3 criteria and problems involving 8 alternatives and 𝑚criteria respectively, where 𝑠∈{2,4,6,8}, 𝑛∈{6,7,8,9,10},
+
+===== PAGE 42 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+42
+𝑚∈{2,3,4,5}. We observe that the proposed MCTS-based questioning policy consistently outperforms the other
+comparative methods across most problem settings and evaluation metrics, whereas the random strategy consistently
+performs the worst across all problem settings.
+The performances of these seven methods have the same trend with the variation of the problem settings. On the
+one hand, as the number of alternatives increases, 𝑓RAI ascends for all the methods, whereas the variations in 𝑓VAR
+and 𝑓PWI do not exhibit a clear pattern. This is because 𝑓RAI quantifies the uncertainty in the ranks assigned to all the
+alternatives; more alternatives incur more positions in the ranking, leading to greater uncertainty in terms of 𝑓RAI. By
+contrast, 𝑓VAR and 𝑓PWI quantify the variance of the posterior distribution derived through the proposed variational
+Bayesian approach and the uncertainty of the preference relations for all pairs of alternatives, respectively. Thus, they
+are not easily affected by changes in the number of alternatives. On the other hand, as the number of criteria increases,
+the performance of the seven questioning policies in terms of the three metrics does not exhibit a clear trend.
+Figure 9
+Average values of 𝑓VAR, 𝑓PWI, and 𝑓RAI after 2, 4, 6 and 8 interaction rounds with 7 questioning policies for
+the test problems with 6-10 alternatives and 3 criteria.
+J.2.
+Performance analysis for different numbers of interaction rounds
+Figure 11 presents the average values of 𝑓VAR, 𝑓PWI, and 𝑓RAI after 2, 4, 6, and 8 interactions with 7 questioning policies
+for test problems with different numbers of alternatives and criteria. This provides an intuitive understanding of how
+the number of interaction rounds impacts the results from another perspective. The observation is two-fold. On the one
+hand, as the number of interaction rounds increases, the results for all methods show a decline across all metrics. This
+aligns with the fact that more preference information reduces our uncertainty about the DM’s preferences. On the other
+hand, with more interactions, the advantages of our method become more pronounced in most problem settings. This
+
+===== PAGE 43 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+43
+Figure 10
+Average values of 𝑓VAR, 𝑓PWI, and 𝑓RAI after 2, 4, 6 and 8 interaction rounds with 7 questioning policies
+for the test problems with 2-5 criteria and 8 alternatives.
+is because our method employs a decision-time planning approach, which allocates the limited computational budget
+to rollouts that simulate sequences starting from the current state, allowing for careful consideration of the long-term
+impacts of decisions while still focusing on the current state. As a result, it mitigates the shortsightedness issue found
+in comparative methods, with this advantage becoming more evident as the number of interaction rounds increases.
+
+===== PAGE 44 =====
+Wang, Liu, Kadziński, and Liao: Preference Construction: A Bayesian Interactive Preference Elicitation Framework Based on Monte Carlo Tree Search
+44
+Figure 11
+Average values of 𝑓VAR, 𝑓PWI, and 𝑓RAI after 2, 4, 6 and 8 interaction rounds with 7 questioning policies
+for the test problems with different numbers of alternatives and criteria.

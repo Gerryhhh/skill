@@ -1,0 +1,1800 @@
+
+===== PAGE 1 =====
+Explainable Ordinal Factorization Model: Deciphering
+the Effects of Attributes by Piece-wise Linear
+Approximation
+Mengzhuo Guo1 and Zhongzhi Xu2 and Qingpeng Zhang3 and Xiuwu Liao4 and Jiapeng Liu5
+Abstract. Ordinal regression predicts the objects’ labels that exhibit
+a natural ordering, which is important to many managerial problems
+such as credit scoring and clinical diagnosis. In these problems, the
+ability to explain how the attributes affect the prediction is critical
+to users. However, most, if not all, existing ordinal regression mod-
+els simplify such explanation in the form of constant coefﬁcients for
+the main and interaction effects of individual attributes. Such expla-
+nation cannot characterize the contributions of attributes at different
+value scales. To address this challenge, we propose a new explainable
+ordinal regression model, namely, the Explainable Ordinal Factoriza-
+tion Model (XOFM). XOFM uses the piece-wise linear functions to
+approximate the actual contributions of individual attributes and their
+interactions. Moreover, XOFM introduces a novel ordinal transfor-
+mation process to assign each object the probabilities of belonging
+to multiple relevant classes, instead of ﬁxing boundaries to differen-
+tiate classes. XOFM is based on the Factorization Machines to han-
+dle the potential sparsity problem as a result of discretizing the at-
+tribute scales. Comprehensive experiments with benchmark datasets
+and baseline models demonstrate that the proposed XOFM exhibits
+superior explainability and leads to state-of-the-art prediction accu-
+racy.
+1
+Introduction
+Ordinal regression (or ordinal classiﬁcation) aims to learn a pattern
+for predicting the objects (e.g.: actions, items, products) labels that
+exhibit a natural ordering [3]. Such problems are different from the
+nominal classiﬁcation problems because the ordering speciﬁes the
+user preferences to each object [27]. For example, we can use an or-
+dinal scale {poor, average, good, verygood} to estimate the condi-
+tion of vehicles. The misclassiﬁcation cost for assigning a good vehi-
+cle to the poor class is greater than assigning it to the average class.
+Taking this ordinal information into consideration leads to more ac-
+curate models. However, if the standard nominal classiﬁcation mod-
+els are used without considering such information, we could obtain
+non-optimal solutions [12].
+State-of-the-art methods for ordinal regression problems either
+transform the original problems to several binary ones or rely on
+the threshold-based models, which approximate a preference value
+1 Xi’an Jiaotong University, City University of Hong Kong, email:
+guomengzhuo@stu.xjtu.edu.cn
+2 City University of Hong Kong, email: zhongzhxu2-c@my.cityu.edu.hk
+3 Corresponding Author. City University of Hong Kong, email: qing-
+peng.zhang@cityu.edu.hk
+4 Xi’an Jiaotong University, email: liaoxiuwu@mail.xjtu.edu.cn
+5 Xi’an Jiaotong University email: jiapengliu@mail.xjtu.edu.cn
+for each object, and then use the trained thresholds to differentiate
+different classes. The ordinal regression problems play an important
+role in many managerial decision making problems such as clinical
+diagnoses [2], consumer preference analysis [10], nano-particles syn-
+thesis assessment [15], age estimation [23], and credit scoring [16].
+In these contexts, the ability to capture the detailed relationships be-
+tween the predictions and different attribute value scales in the model
+is as important as accuracy, because it helps the users understand and
+utilize the underlying model.
+The existing ordinal regression methods explain the results either
+by providing constant coefﬁcients measuring the relative importance
+of the main and interaction effects of the attributes, for instance the
+logistic-based models [22, 27], or by presenting the estimated thresh-
+olds and the proportions of each possible classiﬁcation, for instance
+the thresholds-based models [30, 12] and ordinal binary decomposi-
+tion approaches [3, 5]. Unfortunately, these methods cannot charac-
+terize the contributions of attributes at different value scales, which is
+critical to explaining how the model works. In addition, the boundary
+obtained by threshold-based methods often oversimpliﬁes the condi-
+tion, and thus may not work well for the dataset where many objects
+are close to the boundary.
+To ﬁll the gaps mentioned above, we propose the Explainable Or-
+dinal Factorization Model (XOFM) for the ordinal regression prob-
+lems. XOFM adopts the common assumption that there is a ‘prefer-
+ence’ value for each object [27]. XOFM uses piece-wise linear func-
+tions to approximate the actual contributions of different attribute
+value scales to the prediction using the training data. The trained
+XOFM can then estimate preference values for each object in the
+testing set, and calculate the probabilities of multiple relevant classes
+through comparing with the training samples. In this way, XOFM
+generalizes the thresholds from ﬁxed values to intervals. Eventually,
+XOFM assigns each object the label with the highest probability.
+Because XOFM discretizes an attribute’s value into multiple scales
+in the form of an attribute vector, it may lead to the sparsity prob-
+lem. Thus, XOFM adopts the Factorization Machines (FMs)-based
+scheme to handle the sparsity problem [24]. The contributions are as
+follows:
+• The proposed XOFM introduces a novel ordinal regression trans-
+formation process that generalizes threshold-based ordinal regres-
+sion procedures. It determines an interval for the thresholds based
+on the preference relationships among the objects. As a result,
+there is no need to initialize or estimate the single values of thresh-
+olds.
+• In addition to state-of-the-art prediction performance, XOFM
+model is able to explain the actual contributions of the main effects
+arXiv:1911.05909v1  [cs.LG]  14 Nov 2019
+
+===== PAGE 2 =====
+and interaction effects at different attribute value scales through
+determining the shapes of some piece-wise linear functions. Such
+explainability can provide detailed information to users to deci-
+pher the relationships between attributes and predictions.
+• We formulate the XOFM into a FMs-based scheme to handle the
+data sparsity problem, and extend the FMs to handle ordinal re-
+gression problems. To our best of knowledge, this is the ﬁrst study
+that enhances the explainability of FMs in performing ordinal re-
+gression tasks.
+2
+Related Work
+2.1
+Ordinal regression
+The ordinal regression approaches are commonly classiﬁed into three
+groups: na¨ıve approaches, ordinal binary decomposition approaches
+and threshold-based models [12]. The na¨ıve approaches either do not
+consider the preference levels of classes (such as using the standard
+nominal classiﬁers), or map the class labels into real values (such as
+the support vector regression, SVR model) [29]. However, the map-
+ping of the class labels may hinder the performances because the
+metric distances between ordinal scales are usually unknown [30].
+Ordinal binary decomposition approaches solve the problem by
+decomposing an original ordinal regression problem into several bi-
+nary classiﬁcation problems. [3] proposed a neural network-based
+method for ordinal regression (NNOR). The method decomposes and
+encodes the class labels, then trains a single neural network model to
+classify the objects. Similarly, extreme learning machine (ELMOR),
+a single-layer feed-forward neural network-based model, has also
+been adapted to ordinal regression problems [5]. More recently, CN-
+NOR, a convolutional neural network (CNN)-based model was pro-
+posed to handle the ordinal regression problems. CNNOR is unique
+in being able to handle small datasets given the CNN structure [18].
+These methods achieve good performance, but are limited in model
+explainability given their neural network scheme.
+The threshold-based models are the most popular approaches for
+ordinal regression problems. They assume that there is a function
+measuring the ‘preference’ values of the objects and compare the
+preference values to a set of thresholds, which are either predeﬁned
+or estimated using data. Following this common assumption, the pro-
+portional odds model (POM) uses a standard logistic function to pre-
+dict the probability of an object being classiﬁed to a class [22]. POM
+has become the standard ordinal regression method, and the basis
+for most followup threshold-based models [12]. Typical examples
+include the ordinal logistic model with immediate-threshold variant
+(LIT) and all-threshold variant (LAT) [27], and kernel discriminant
+learning for ordinal regression (KDLOR) [30]. Unfortunately, none
+of these models can decipher the contributions of the attributes at
+different speciﬁc value scales.
+2.2
+Factorization Machines
+Factorization machines (FMs) combine the advantages of support
+vector machines with factorization models. FMs factorize the inter-
+action parameters instead of directly estimating them, thus they have
+the advantage in handling sparse data [24]. FMs have been widely ap-
+plied to various machine learning problems including recommender
+systems [26], click predictions [33], and image recognition [17]. FMs
+can be used for ranking problems given the aforementioned charac-
+teristics. However, few studies applied FMs to ordinal regression due
+to the difﬁculty in transforming the ordinal regression problems into
+a ranking form. Ordinal factorization machine and hierarchical spar-
+sity (OFMHS) utilizes FMs for ordinal regression through formulat-
+ing it as a convex optimization problem. In particular, OFMHS can
+model the hierarchical structure behind the input variables [11]. Al-
+though the method achieves state-of-the-art performance, it does not
+explore the detailed relationship between the attributes and predic-
+tions.
+2.3
+Explainable Models
+Apparently there are various deﬁnitions of the model explainabil-
+ity. Here we focus on enhancing the model induction as deﬁned in
+[9]. Speciﬁcally, an explainable model should be able to character-
+ize the contributions of the individual attributes and reveal the in-
+teraction effects of the attributes [19]. They used score/shape func-
+tions to measure the main effects and mapped the interaction effects
+to real values [20]. At last, different link functions are used to link
+these score functions with various machine learning tasks [32, 31].
+Unfortunately, these powerful explainable models cannot be directly
+adopted for ordinal regression problems. In this study, we use the
+piece-wise linear score functions to characterize the contributions of
+individual attributes. The mapping functions explore the interaction
+effects of the attributes, and the link function measures the ‘prefer-
+ence’ values of the objects.
+3
+Explainable Ordinal Factorization Model
+3.1
+Preliminaries
+Consider an ordinal regression problem that concerns a set
+of N
+objects X
+=
+{x1, . . . , xi, . . . , xN}, where xi
+=
+(xi,1, . . . , xi,j, . . . , xi,m) ∈Rm, and the class label yi ∈Y =
+{1, . . . , h, . . . , H}. The classes are in a natural ordering CH ≻
+CH−1 ≻· · · ≻C1, where Ch ≻Ch−1, h = 2, . . . , H indicates
+that the objects in the class Ch are preferred to those in Ch−1. An at-
+tribute interaction, I, is a subset of all attributes: I ⊆{1, 2, . . . , m}.
+We denote Id ⊆I, d ∈D = {2, 3, . . . , m} be the set of all d-order
+interactions. More speciﬁcally, if d = 2, I2 = {{i, j}|i, j ∈D, i̸ =
+j} is the set of all pairwise interactions.
+We assume the ‘preference’ value of each object is determined by
+a link function:
+U(xi) =
+m
+X
+j=1
+uj (xi,j) +
+X
+{j1,j2}⊆I2
+uj1,j2 (xi,j1, xi,j2)
++ · · · +
+X
+{j1,...jd}⊆Id
+uj1,...jd (xi,j1, . . . , xi,jd)
+(1)
+where d ∈D is the predeﬁned highest order of interactions.
+uj(·), j = 1, . . . , m denotes score function of j-th attribute and
+uj1,··· ,jd(·), d ∈D denotes a mapping function of the interacting
+attributes. We use a piece-wise linear function to estimate each score
+function because any nonlinear functions can be approximated by
+sampling the curves and interpolating linearly between the points
+[13]. Let Xj = [αj, βj], where αj = min{xi,j|xi ∈X} and
+βj = max{xi,j|xi ∈X}, be the whole value scale of the j-th
+attribute. For each attribute, we partition the scale into γj equal sub-
+intervals [ϕ0
+j, ϕ1
+j], [ϕ1
+j, ϕ2
+j], . . . , [ϕ
+γj−1
+j
+, ϕ
+γj
+j ], where ϕk
+j = αj +
+k
+γj (βj −αj) , k = 0, 1, . . . γj are called characteristic points.
+2
+
+===== PAGE 3 =====
+Deﬁnition 1. The attribute vector Φi ∈Rγ, γ = Pm
+j=1 γj of object
+xi ∈X is deﬁned as follows:
+Φi =
+
+
+φ1
+i,1, . . . φγ1
+i,1,
+|
+{z
+}
+1-st Attribute
+. . . , . . . , φ
+kj
+i,j, . . . ,
+|
+{z
+}
+j-th Attribute
+. . . , . . . φγm
+i,m
+|
+{z
+}
+m-th Attribute
+
+
+
+T
+(2)
+where φ
+kj
+i,j
+=
+
+
+
+
+
+
+
+
+
+1,
+xi,j > ϕ
+kj
+j ,
+xi,j−ϕ
+kj −1
+j
+ϕ
+kj
+j
+−ϕ
+kj −1
+j
+,
+ϕ
+kj−1
+j
+≤xi,j ≤ϕ
+kj
+j ,
+0,
+otherwise.
+j
+=
+1, . . . , m, and kj = 1, . . . , γj.
+Deﬁnition 2. The marginal score vector u is deﬁned as:
+u =
+
+∆1
+1, . . . , ∆γ1
+1 , . . . , ∆
+kj
+j , . . . , ∆1
+m, . . . , ∆γm
+m
+T
+(3)
+where ∆
+kj
+j
+= uj(ϕ
+kj
+j ) −uj(ϕ
+kj−1
+j
+), j = 1, . . . , m, and kj =
+1, . . . , γj, is the difference between two consecutive characteristic
+points.
+Given Deﬁnitions 1 and 2, the ﬁrst term in Eq.(1), namely the main
+effects of the attributes, can be reformulated. As for the interaction
+effects part, we consider the pairwise interactions (d = 2) because
+this is the most common situation. Since directly estimating the indi-
+vidual mappings of uj1,j2(·) ∈R, {j1, j2} ⊆I2 may cause data
+sparsity problem [24], we model these interactions by factorizing
+them. The new link function is as follows:
+U(xi) = uT Φi +
+γ
+X
+j1=1
+γ
+X
+j2=j1+1
+⟨vj1, vj2⟩Φi,j1Φi,j2
+(4)
+where ⟨vj1, vj2⟩=
+kP
+f=1
+vj1,fvj2,f is a dot product of size k, and
+Φi,j is the j-th element in vector Φi. The Eq.(4) is in the form of
+FMs. The only difference is that the Eq.(4) does not have a global
+bias term, which does not affect the predictions (please refer to the
+following section).
+3.2
+Transform Ordinal Regression Problems
+We introduce a new process for transforming ordinal regression prob-
+lems. The process determines the labels of the objects in the testing
+set by comparing their ‘preference’ values to the objects in the train-
+ing set Xtrain ⊆X [7]. The boundaries of each class are learned
+from these comparisons and are deﬁned by intervals instead of some
+ﬁxed real values, which generalizes the threshold-based ordinal re-
+gression procedures.
+Deﬁnition 3. Given a link function U(·), the ‘preference’ relation-
+ship between two objects is concordance with U if and only if:
+∀xi, xj ∈Xtrain, U(xi) ≥U(xj) =⇒yi ≥yj
+(5)
+and equivalently,
+∀xi, xj ∈Xtrain, yi > yj =⇒U(xi) ≥U(xj) + τ
+(6)
+where τ is a predeﬁned positive margin.
+Deﬁnition 3 assumes the labels of objects are concordant to their
+‘preference’ values (scores), i.e., the greater the value of U(xi), the
+more likely that the object xi being assigned to better classes. Such
+information is helpful for constructing loss functions for ordinal re-
+gression problems. Given the following deﬁnition, we determine the
+multiple relevant classes for objects xi ∈X:
+Deﬁnition 4. Given the link function U(·), the class interval of an
+object xi ∈X is [CLi, CRi], where:
+Li = Max({1} ∪{yj : U(xj) ≤U(xi), xj ∈∀Xtrain})
+(7)
+and
+Ri = Min({H} ∪{yj : U(xj) ≥U(xi), xj ∈∀Xtrain})
+(8)
+Proposition 1. Given the link function U(·), the interval [CLi, CRi]
+of object xi ∈X is not empty.
+Proof. If set1 = {xj ∈∀Xtrain : U(xj) ≤U(xi)} = ∅, then
+Li = 1, thus Li ≤Ri and the interval is not empty. Analogously, if
+set2 = {xj ∈∀Xtrain : U(xj) ≥U(xi)} = ∅, then Ri = H, thus
+Li ≤Ri and the interval is not empty.
+We prove it when set1̸ = ∅and set2̸ = ∅by contradiction. As-
+sume Li > Ri, we have xj ∈set1 and xk ∈set2 such that yj > yk.
+As stated in Deﬁnition 3, yj > yk indicates that U(xj) ≥U(xk)+τ.
+Since τ > 0, thus U(xj) > U(xk). Note that xj ∈set1 and
+xk ∈set2, thus U(xj) ≤U(xk), which contradicts the assump-
+tion and concludes the proof.
+Given Deﬁnition 3 and Proposition 1, XOFM always provides an
+interval for each object. The interval contains either a single class
+or multiple relevant classes. The users can determine the ﬁnal class
+based on either their domain knowledge or the following indicator.
+We deﬁne an indicator κ(xi →Ch) that favors the classiﬁcation
+xi →Ch, h = 1, . . . , H:
+Deﬁnition 5. Given an class interval [CLi, CRi], if Li = Ri,
+then xi
+→
+CLi. If not, the indicator κ(xi
+→
+Ch)
+=
+card(ˆyh
+i )
+P
+s=1,...,h−1,h+1,...,H |Xs|, h = Li, Li + 1, . . . , Ri, where Xs =
+{xj ∈Xtrain|yj = s}, s = 1, . . . , h −1, h + 1, . . . , H and
+card(ˆyh
+i ) =
+X
+s=1,...,h−1
+|{x ∈Xs|U(xi) −U(x) > τ}|
++
+X
+s=h+1,...,H
+|{x ∈Xs|U(x) −U(xi) > τ}|
+Deﬁnition 5 provides a proportion of objects that are classiﬁed to a
+class either worse or better than Ch. Obviously, the greater κ(xi →
+Ch) is, the more likely that ˆyi = h. Hence, we classify xi to the
+class with the maximal κ(xi →Ch).
+Proposition 2. The proposed transformation procedure for ordinal
+regression generalizes the threshold-based procedure. The classiﬁ-
+cations determined by the proposed procedure can be obtained by
+ﬁxing the thresholds within some intervals instead of single values.
+Proof. From Deﬁnition 3, the ‘preference’ between two objects are
+concordance with the value of link function U(·), i.e., x∗
+i , x∗
+j ∈
+Xtrain, U(x∗
+i ) ≥U(x∗
+j) ⇒y∗
+i ≥y∗
+j . Assume the threshold bh and
+bh−1 are the upper and lower bounds of Ch, h ∈Y, respectively. If
+Max{U(x∗
+i )|x∗
+i ∈Xh} < bh ≤Min{U(x∗
+i )|x∗
+i ∈Xh+1}, then
+any object xi ∈X such that bh−1 ≤U(xi) < bh will be classi-
+ﬁed to class Ch by threshold-based procedure. Considering testing
+samples xi ∈X/Xtrain, we have two cases:
+(1) ∃h ∈{1, . . . , H} and Min{U(x∗
+i )|x∗
+i ∈Xh} ≤U(xi) <
+Max{U(x∗
+i )|x∗
+i ∈Xh}. Given Deﬁnition 4, Li = Ri = h and
+the proposed procedure will classify xi to class Ch. Moreover, since
+3
+
+===== PAGE 4 =====
+Min{U(x∗
+i )|x∗
+i ∈Xh} ≤U(xi) < Max{U(x∗
+i )|x∗
+i ∈Xh}, the
+threshold-based procedure will always classiﬁes xi to Ch as long as
+the thresholds bh−1 and bh satisfying Max{U(x∗
+i )|x∗
+i ∈Xh−1} <
+bh−1 ≤Min{U(x∗
+i )|x∗
+i ∈Xh} and Max{U(x∗
+i )|x∗
+i ∈Xh} < bh
+≤Min{U(x∗
+i )|x∗
+i ∈Xh+1}.
+(2) ∃h
+∈
+{1, . . . , H −1} and Max{U(x∗
+i )|x∗
+i ∈Xh}
+<
+U(xi) < Min{U(x∗
+i )|x∗
+i ∈Xh+1}. Given Deﬁnition 4, Li = h
+and Ri = h + 1, the proposed procedure will classify xi to an in-
+terval [Ch, Ch+1]. Moreover, if Max{U(x∗
+i )|x∗
+i ∈Xh} < bh ≤
+U(xi), the threshold-based procedure will classify xi to Ch+1, and
+if U(xi) < bh ≤Min{U(x∗
+i )|x∗
+i ∈Xh+1} the classiﬁcation will
+be Ch. Given two cases, the threshold-based procedure provides sin-
+gle values of the thresholds, and classiﬁes an object to a single class
+within an interval that can be stemmed from the proposed procedure.
+Therefore, the propose procedure is a general form of the threshold-
+based procedure.
+3.3
+Learning XOFM
+The parameters in the proposed XOFM, i.e., u ∈Rγ, V ∈Rγ×k can
+be estimated under a standard FMs-based scheme with the following
+loss function:
+Loss = 1
+2
+X
+xi,xj∈Xtrain,xi̸=xj
+l ((xi, xj) , yi,j)2
+(9)
+where l ((xi, xj) , yi,j) = max {0, U(xj) −U(xi) + τ} if yi,j =
+yi−yj > 0. All pairwise comparisons with U(xi)−U(xj) less than
+the predeﬁned margin τ are penalized. Obviously, since we focus
+on the difference between two objects scores, the global bias term
+in traditional FMs can be discarded. The model parameters can be
+learned by gradient descent methods. The gradient of the parameters
+in XOFM is [25]:
+∂U(xi)
+∂θ
+=
+ Φi,j,
+if θ is uj
+Φi,j
+Pm
+k=1 vk,fΦk,j −vj,fΦ2
+i,j, if θ is vj,f
+(10)
+For direct optimization of the loss function, the derivatives are:
+∂
+∂θ l((xi, xj) , yi,j)2 =
+ 0,
+if
+U(xi) −U(xj) −τ ≥0
+2(U(xj) −U(xi) + τ)(
+∂U(xj)
+∂θ
+−∂U(xi)
+∂θ
+)
+o.w.
+(11)
+The computational complexity for the training process is linear
+while the computational complexity for preprocessing the data is
+O(N 2). We can use the standard optimization algorithms that have
+been proposed for other machine learning models to estimate the pa-
+rameters in XOFM. Stochastic gradient descent (SGD) is an iterative
+method for optimizing an objective function with smoothness prop-
+erties [28]. Since the loss function in XOFM is convex, it is suit-
+able to use SGD algorithm to optimize the parameters. Nevertheless
+however, other complex optimization algorithms such as advanced
+stochastic approximation algorithms and Markov Chain Monte Carlo
+inference are also suitable for the proposed XOFM. Algorithm 1
+shows how to apply SGD to optimize the XOFM.
+3.4
+Explainable Model and Regularization
+XOFM uses piece-wise linear functions to approximate the actual
+contributions of the attributes at different value scales. More specif-
+ically, the vector u characterizes the main effects by presenting a
+Algorithm 1 SGD for XOFM.
+Input: Training data xi, xi ∈Xtrain, regularization terms λ1, λ2,
+predeﬁned number of sub-intervals γj, j = 1, . . . , m, dot prod-
+uct size k, learning rate η, number of iteration iter, and initial-
+ization σ.
+Output: Parameters w and V in XOFM.
+1: Vectorize the attributes scales and determine the differences of
+the attributes vectors between pairwise alternatives.
+2: Initialize w ←(0, . . . , 0) , V ∼N (0, σ).
+3: while i ≤iter do
+4:
+for (xi, xj) ∈{(xi, xj) |xi, xj ∈Xtrain, yi > yj} do
+5:
+for n ∈{1, . . . , γ} do
+6:
+wn ←wn −η
+
+∂
+∂wn l((xi, xj) , yi,j)2 + 2λ1wn
+
+;
+7:
+for f ∈{1, . . . , k} do
+8:
+vn,f
+←
+vn,f
+−
+η
+
+∂
+∂vn,f l((xi, xj) , yi,j)2 + 2λ2vn,f
+
+;
+9:
+end for
+10:
+end for
+11:
+end for
+12:
+i ←i + 1;
+13: end while
+score function versus individual attributes at different value scales.
+The parameters in matrix V decipher the interaction effects of dis-
+cretized value scales between two attributes. These parameters can
+help us understand the pairwise interactions via a interaction matrix
+(visualized as a heat-map), in which the whole area is divided into
+small blocks and each block represents the interaction effects of the
+corresponding intervals of attribute scales.
+To avoid the over-ﬁtting problem, we can modify the loss func-
+tion of XOFM by adding regularization terms for both the main and
+interaction effects:
+NewLoss = Loss + λ1 ∥u∥2
+2 + λ2 ∥V∥2
+F
+(12)
+where ∥·∥F is Frobenius norm. In addition to avoid over-ﬁtting prob-
+lem, the regularization terms can constrain the shape of score func-
+tions and adjust the effect of the attribute interactions. Obviously,
+λ1 determines the complexity of the score functions of individual
+attributes. When λ1 increases, the model tends to penalize the dif-
+ference between the two consecutive characteristic points, thus the
+score functions change smoother. In contrast, λ2 determines the im-
+pact of the attribute interactions on the link function. A smaller λ2
+leads to less intensity of attribute interactions. The value of λ1 and
+λ2 can be predeﬁned in accordance with the users’ domain knowl-
+edge. For instance, if the user ensures that the involved attributes are
+usually irrelevant to each other, λ2 can be set to a large value.
+The capacity to explain the results makes XOFM helpful for
+managerial problems. For example, physicians need accurate re-
+admission prediction models that can reveal the detailed effects of
+risk factors for individual patients. By visualizing the main and in-
+teraction effects of the risk factors, it is easier for physicians to ex-
+amine the consistency between the underlying model and their prior
+knowledge. Such explainability is important to test the rationality of
+a prediction model.
+3.5
+XOFM with monotonicity constraints
+In some real world decision problems, the user’s prior knowledge
+about some attributes, for instance the monotonicity of attributes is
+4
+
+===== PAGE 5 =====
+required to be satisﬁed [14]. The proposed XOFM can also adapt
+to these cases where the attributes are restricted to be monotonic.
+Note that in these cases, the monotonicity of interaction effects of
+two monotonic attributes should also be maintained [8]. For this pur-
+pose, we reformulate original XOFM with additional constraints:
+Min
+u,V NewLoss
+s.t. : ∆s
+j ≥0, s = 1, . . . γj, j = 1, . . . m,
+⟨vn1, vn2⟩≥0, n1 = 1, . . . γ, n2 = 1, . . . γ,
+(13)
+There are many methods can be used to optimize Problem (13). In
+this study, we ﬁrst substitute ∆k
+j by (∆′k
+j )2 and do not constrain on
+∆′k
+j . In this way, the problems regarding ∆′k
+j are unconstrained, thus
+standard gradient decent algorithms can be used for optimizing ∆′k
+j
+and ∆k
+j = (∆′k
+j )2. We then use the projected gradient methods to
+optimize the parameters in V [21]. More speciﬁcally, the constraints
+on dot products can be replaced with the following constraints re-
+garding vn,f:
+Min
+u,V NewLoss
+s.t. : ∆s
+j =
+
+∆
+′s
+j
+2
+, s = 1, . . . γj, j = 1, . . . m,
+vn,f ≥0, n = 1, . . . , γ, f = 1, . . . , k,
+(14)
+where vn,f is the f-th element in vector vn. Note that the feasi-
+ble region in Problem (14) is convex subset of the feasible region
+in Problem (13). Although the new constraints are stricter, they are
+simpler to solve [34]. To solve the Problem (13), we deﬁne an indica-
+tor function: 1∞(vn) =
+ 0, vn,f ≥0, ∀vn,f in vn
+∞, otherwise
+and rewrite
+Problem (14) as:
+Min
+u,V NewLoss′ +
+γ
+X
+n=1
+1∞(vn)
+(15)
+Note that the ∆s
+j is replaced by (∆′s
+j)2 in NewLoss′. in Prob-
+lem (15), we ﬁrst optimize the differentiable part NewLoss′ in
+the objective function and then use an euclidean projection to en-
+sure that the solutions are in the feasible region. We add an extra
+step between steps 8 and 9 in Algorithm 1, i.e., vn,f ←P(vn,f),
+where P(vn,f) =
+ 0, vn,f ≤0,
+vn,f, otherwise,
+for all n = 1, . . . , γ, f =
+1, . . . , k.
+We apply this speciﬁc model to a real dataset and the experimen-
+tal results, including the obtained marginal value functions and all
+pairwise interaction effects are presented in the online version.
+4
+Experimental Analysis
+4.1
+Experimental Design
+We evaluate the proposed XOFM on seven benchmark datasets and
+compare its performance with that of state-of-the-art baseline ordinal
+regression methods. The characteristics of the datasets6 are presented
+in Table 1 and the selected baselines are presented in Table 2. A ﬁve-
+fold cross validation process is used to train the models. Note that
+6 Abalone, Auto Riskiness, Boston Housing, Stock and Skill are down-
+loaded
+from
+https://www.gagolewski.com/resources/
+data/ordinal-regression/, Breast data is downloaded from
+UCI [6], and Chinese University data is collected from http:
+//www.shanghairanking.com/Chinese_Universities_
+Rankings/.
+for consistency, we do not add any regularization terms in this ex-
+periment and the parameters in XOFM are γ and τ. We use the stan-
+dard stochastic gradient descent algorithm to optimize XOFM, but
+other algorithms introduced in [25] can also be applied to optimize
+XOFM. After the parameters in each model are determined, we ran-
+domly select 80% and 20% of the data as the training set and testing
+set, respectively, and then average the results over 30 trials to eval-
+uate the performance. The code for the proposed XOFM is attached
+for review purpose, and will be made publicly available on Github.
+Table 1.
+Characteristics of the datasets.
+Dataset
+#Obj.
+#Attr.
+#Classes
+abalone ord (AO)
+4,177
+7
+8
+auto riskiness (AR)
+160
+15
+6
+breast (BR)
+106
+9
+6
+Boston housing ord (BHO)
+506
+13
+5
+Chinese university (CU)
+600
+10
+5
+stock ord (SO)
+950
+9
+5
+skill (SK)
+3,302
+18
+6
+Table 2.
+Selected ordinal regression approaches.
+Abbr.
+Short description
+LIT
+Ordinal logistic model with immediate-threshold variant [27].
+LAT
+Ordinal logistic model with all-threshold variant [27].
+KDLOR
+Kernel discriminant learning for ordinal regression [30].
+POM
+Proportional odds model [22].
+SVR
+Support vector regression [29].
+NNOR
+Neural network with ordered partition for ordinal regression [3].
+ELMOR
+Extreme learning machine for ordinal regression [5].
+CNNOR
+Convolutional deep neural network for ordinal regression [18].
+OFMHS
+Ordinal factorization machine with hierarchical sparsity [11].
+XOFM
+Proposed explainable ordinal factorization model.
+To evaluate the performance, we adopt two measures. First, we use
+the Accuracy (Acc) to measure the global performance but does not
+consider the order:
+Acc = 1
+N
+N
+X
+i=1
+[[ˆyi = yi]]
+(16)
+where ˆyi is the predicted label.
+Second, we adopt the Mean Absolute Error (MAE) to measure
+the deviation of the predicted labels from the actual labels [1]:
+MAE = 1
+N
+N
+X
+i=1
+|ˆyi −yi|
+(17)
+4.2
+Results Analysis
+We report Acc and MAE in Table 3 and Table 4, respectively. The
+best result for each dataset is highlighted. From the Acc results, the
+proposed XOFM achieves either the best (AR, BR, CU, and SO) or
+near-the-best (BHO) results for the small-sized datasets. Although
+EFOM does not perform the best on some large-sized datasets (AO
+and SK), its performance is better than most baselines and not very
+much worse than the best one. Similar conclusions can be obtained
+given Table 4. The proposed XOFM is lowest for ﬁve out of seven
+datasets according to MAE. This indicates that the wrong predic-
+tions made by XOFM are not much deviated from the true labels.
+For example, XOFM is not the best method for BHO dataset accord-
+ing to Acc; however, it achieves the least MAE. It indicates that the
+5
+
+===== PAGE 6 =====
+Table 3.
+Test Acc results for each dataset and approach.
+Approaches
+AO
+AR
+BR
+BHO
+CU
+SO
+SK
+LIT
+0.304±0.034
+0.469±0.031
+0.619±0.015
+0.634±0.024
+0.783±0.019
+0.721±0.023
+0.325±0.086
+LAT
+0.316±0.037
+0.219±0.034
+0.619±0.014
+0.634±0.021
+808±0.021
+0.710±0.020
+0.346±0.067
+KDLOR
+0.295±0.028
+0.375±0.037
+0.429±0.017
+0.584±0.020
+0.900±0.008
+0.789±0.012
+0.377±0.055
+POM
+0.347±0.029
+0.406±0.029
+0.667±0.013
+0.653±0.022
+0.942±0.009
+0.689±0.021
+0.428±0.018
+SVR
+0.322±0.031
+0.625±0.030
+0.476±0.017
+0.584±0.021
+0.917±0.006
+0.845±0.018
+0.362±0.022
+NNOR
+0.333±0.027
+0.656±0.041
+0.619±0.015
+0.644±0.019
+0.900±0.005
+0.816±0.024
+0.442±0.031
+ELMOR
+0.352±0.029
+0.594±0.038
+0.571±0.018
+0.584±0.020
+0.825±0.019
+0.816±0.021
+0.424±0.028
+CNNOR
+0.344±0.036
+0.381±0.032
+0.598±0.011
+0.581±0.022
+0.933±0.008
+0.724±0.039
+0.318±0.035
+OFMHS
+0.323±0.039
+0.491±0.032
+0.638±0.012
+0.588±0.014
+0.917±0.005
+0.793±0.025
+0.301±0.029
+XOFM
+0.348±0.023
+0.719±0.031
+0.682±0.021
+0.637±0.017
+0.942±0.009
+0.858±0.033
+0.395±0.024
+Table 4.
+Test MAE results for each dataset and approach.
+Approaches
+AO
+AR
+BR
+BHO
+CU
+SO
+SK
+LIT
+1.256±0.097
+0.594±0.071
+0.524±0.065
+0.475±0.053
+0.217±0.011
+0.295±0.042
+0.964±0.079
+LAT
+1.081±0.103
+0.875±0.081
+0.619±0.057
+0.475±0.043
+0.200±0.018
+0.305±0.044
+0.826±0.077
+KDLOR
+1.268±0.067
+0.906±0.062
+0.669±0.053
+0.485±0.045
+0.101±0.008
+0.216±0.029
+0.856±0.067
+POM
+1.103±0.078
+0.688±0.082
+0.429±0.052
+0.416±0.037
+0.058±0.009
+0.316±0.026
+0.712±0.055
+SVR
+0.982±0.089
+0.375±0.063
+0.619±0.042
+0.436±0.032
+0.083±0.005
+0.179±0.018
+0.839±0.050
+NNOR
+1.034±0.083
+0.406±0.042
+0.381±0.030
+0.426±0.041
+0.100±0.013
+0.184±0.022
+0.685±0.058
+ELMOR
+0.996±0.093
+0.438±0.035
+0.667±0.036
+0.475±0.030
+0.175±0.018
+0.184±0.021
+0.694±0.033
+CNNOR
+1.326±0.029
+0.681±0.013
+0.488±0.020
+0.497±0.019
+0.092±0.007
+0.298±0.028
+1.109±0.051
+OFMHS
+1.398±0.041
+0.619±0.040
+0.420±0.021
+0.502±0.020
+0.108±0.008
+0.282±0.016
+1.182±0.031
+XOFM
+1.033±0.021
+0.343±0.019
+0.363±0.009
+0.411±0.016
+0.058±0.008
+0.152±0.018
+0.801±0.032
+proposed XOFM can better take advantage of the ordinal information
+to reduce the error.
+The traditional ordinal regression methods usually require to cal-
+culate the difference between two objects, which leads to some
+sparse training data. This problem heavily affects the performance on
+smaller datasets given insufﬁcient training samples and larger vari-
+ance. Similarly, XOFM discretizes an attribute’s value into multiple
+scales in the form of an attribute vector and trains the parameters by
+determining the differences between every two attribute vectors. This
+process also leads to the sparsity problem. XOFM utilizes the FMs
+scheme to address this issue. The experiments results validate the ef-
+fectiveness of XOFM on ﬁve smaller-sized datasets. In the next sub-
+section, we will show that the proposed XOFM can provide mean-
+ingful explanations for predictions.
+4.3
+Explainability
+The capability to decipher the detailed relationships between at-
+tributes and predictions is the key to explain the model. To demon-
+strate such explainability of XOFM, we present the obtained score
+functions for the Breast data in Figure 1. This dataset contains some
+electrical impedance measurements in samples of freshly excised tis-
+sue from the breast. XOFM is used to classify a sampled tissue into
+one of six ordered classes, Carcinoma ≻Fibro-adenoma ≻Mastopa-
+thy ≻Glandular ≻Connective ≻Adipose, where Carcinoma is the
+most severe class and Adipose is the safest. The involved attributes
+are described in Table 5.
+In Figure 1, each score function is in a piece-wise linear form and
+characterizes a single attribute’s contribution to the risk for breast
+cancer. For example, the attribute I0, the Impedivity (ohm) at zero
+frequency, negatively affects the risk for an object belonging to the
+Carcinoma class because the marginal score decreases along with
+0
+1000
+2000
+I0
+−1
+0
+0.0
+0.1
+0.2
+0.3
+PA500
+−0.25
+0.00
+0.0
+0.2
+0.4
+HFS
+−0.5
+0.0
+0
+250
+500
+750
+1000
+DA
+−0.1
+0.0
+0
+50000
+100000 150000
+AREA
+−0.2
+0.0
+0
+50
+100
+150
+A-DA
+0.00
+0.25
+0
+100
+200
+300
+400
+MAX-IP
+−0.1
+0.0
+0.1
+0.2
+0
+250
+500
+750
+1000
+DR
+0.0
+0.2
+0
+1000
+2000
+3000
+P
+−0.5
+0.0
+Figure 1.
+Score functions of the attributes in Breast dataset when λ1 = 0
+and λ2 = 0.
+124.03
+332.79
+541.54
+750.3
+959.06
+DA
+17511.43
+52393.44
+87275.45
+122157.46
+157039.47
+AREA
+−0.010
+−0.005
+0.000
+0.005
+0.010
+Figure 2.
+Heat-map for pairwise interactions between attributes DA and
+AREA when λ1 = λ2 = 0.
+6
+
+===== PAGE 7 =====
+Table 5.
+Descriptions for attributes in breast data.
+Attr.
+Description
+I0
+impedivity (ohm) at zero frequency
+PA500
+phase angle at 500 KHz
+HFS
+high-frequency slope of phase angle
+DA
+impedance distance between spectral ends
+AREA
+area under spectrum
+A-DA
+area normalized by DA
+MAX-IP
+maximum of the spectrum
+DR
+distance between I0 and max frequency point
+P
+length of the spectral curve
+the increase of attribute value. Moreover, from the marginal scores
+scales (the distance between the maximal and the minimal values
+in y-axis), we ﬁnd that the attribute I0 is the most important one
+because its marginal score ranges from 0 to -1.25, which is the largest
+one among all attributes. That conclusion is consistent with previous
+clinical ﬁndings [4].
+XOFM can decipher the interaction effects of the attributes. For
+brevity, we report one of the pairwise interactions as a heat-map (Fig-
+ure 2). The color represents the intensity of the interactions in dif-
+ferent attribute value intervals. For example, when AREA is around
+87,275.45, its interaction with DA is stronger, indicating that a breast
+tissue with AREA around 87,275.45 and DA within the interval
+[332.79, 959.06] is more likely to be malignant.
+4.4
+Modiﬁcation
+XOFM is an ﬂexible model that can be modiﬁed by tuning the reg-
+ularization terms. As introduced in previous section, λ1 controls the
+complexity of the score functions and λ2 determines the intensity
+of the attribute interactions. In addition to determine the parame-
+ters by cross-validation process, we can progressively adjust the pa-
+rameters based on the user’s domain knowledge. For example, if a
+physician insists that the main effects are more important than the
+attribute interactions, we can increase λ2 and the resulted new heat-
+map is shown in Figure 3. Obviously, the intensity of the interaction
+is weaker than the previous one. On the contrast, if we increase λ1,
+the score functions would become more ﬂat and some exhibit differ-
+ent curve shapes (Figure 4). In practice, we can determine the values
+of regularization terms based on the performance, or by soliciting the
+opinion of domain experts.
+124.03
+332.79
+541.54
+750.3
+959.06
+DA
+17511.43
+52393.44
+87275.45
+122157.46
+157039.47
+AREA
+−0.008
+−0.006
+−0.004
+−0.002
+0.000
+0.002
+0.004
+Figure 3.
+Heat-map for pairwise interactions between attributes DA and
+AREA when λ1 = 0 and λ2 = 0.005.
+0
+1000
+2000
+I0
+−0.5
+0.0
+0.0
+0.1
+0.2
+0.3
+PA500
+−0.2
+0.0
+0.0
+0.2
+0.4
+HFS
+−0.25
+0.00
+0
+250
+500
+750
+1000
+DA
+0.00
+0.05
+0
+50000
+100000 150000
+AREA
+−0.2
+0.0
+0
+50
+100
+150
+A-DA
+0.0
+0.1
+0
+100
+200
+300
+400
+MAX-IP
+−0.2
+0.0
+0
+250
+500
+750
+1000
+DR
+−0.1
+0.0
+0
+1000
+2000
+3000
+P
+−0.5
+0.0
+Figure 4.
+score functions of the attributes in Breast dataset when λ1 =
+0.01 and λ2 = 0.
+5
+Conclusion
+In this study, we propose the XOFM, a new factorization machines-
+based ordinal regression model. XOFM is able to provide state-of-
+the-art prediction performance, and more importantly, provide mean-
+ingful explainability that deciphers the detailed contributions of at-
+tributes and their interactions. Such explainability makes XOFM
+uniquely effective in providing decision making support, where the
+ability to explain how the predictions are made is as much needed
+as achieving good accuracy. Moreover, XOFM presents a general
+explainable-modeling framework that can be calibrated/modiﬁed for
+various prediction problems other than ordinal regressions.
+ACKNOWLEDGEMENTS
+We appreciate the anonymous reviewers and PC members for their
+valuable suggestions and comments.
+REFERENCES
+[1]
+Stefano Baccianella, Andrea Esuli, and Fabrizio Sebastiani, ‘Evaluation
+Measures for Ordinal Regression’, in 2009 Ninth International Con-
+ference on Intelligent Systems Design and Applications, pp. 283–287.
+IEEE, (2009).
+[2]
+Ralf Bender and Ulrich Grouven, ‘Ordinal Logistic Regression in Med-
+ical Research’, Journal of the Royal College of Physicians of London,
+31(5), 546, (1997).
+[3]
+Jianlin Cheng, Zheng Wang, and Gianluca Pollastri, ‘A Neural Net-
+work Approach to Ordinal Regression’, in 2008 IEEE International
+Joint Conference on Neural Networks (IEEE World Congress on Com-
+putational Intelligence), pp. 1279–1284. IEEE, (2008).
+[4]
+J Estrela Da Silva, JP Marques De S´a, and J Jossinet, ‘Classiﬁcation
+of Breast Tissue by Electrical Impedance Spectroscopy’, Medical and
+Biological Engineering and Computing, 38(1), 26–30, (2000).
+[5]
+Wan-Yu Deng, Qing-Hua Zheng, Shiguo Lian, Lin Chen, and Xin
+Wang, ‘Ordinal Extreme Learning Machine’, Neurocomputing, 74(1-
+3), 447–456, (2010).
+[6]
+Dheeru Dua and Casey Graff.
+UCI Machine Learning Repository
+(2017), 2017.
+[7]
+Salvatore Greco, Vincent Mousseau, and Roman Słowi´nski, ‘Multiple
+Criteria Sorting with a Set of Additive Value Functions’, European
+Journal of Operational Research, 207(3), 1455–1470, (2010).
+[8]
+Salvatore Greco, Vincent Mousseau, and Roman Słowi´nski, ‘Robust
+Ordinal Regression for Value Functions Handling Interacting Criteria’,
+European Journal of Operational Research, 239(3), 711–730, (2014).
+[9]
+David Gunning, ‘Explainable Artiﬁcial Intelligence (XAI)’, Defense
+Advanced Research Projects Agency (DARPA), nd Web, 2, (2017).
+[10]
+Mengzhuo Guo, Xiuwu Liao, Jiapeng Liu, and Qingpeng Zhang, ‘Con-
+sumer Preference Analysis: A Data-driven Multiple Criteria Approach
+Integrating Online Information.’, Omega, (2019).
+[11]
+Shaocheng Guo, Songcan Chen, and Qing Tian, ‘Ordinal Factorization
+Machine with Hierarchical Sparsity’, Frontiers of Computer Science,
+(Mar 2019).
+7
+
+===== PAGE 8 =====
+[12]
+Pedro
+Antonio
+Gutierrez,
+Maria
+Perez-Ortiz,
+Javier
+Sanchez-
+Monedero, Francisco Fernandez-Navarro, and Cesar Hervas-Martinez,
+‘Ordinal Regression Methods: Survey and Experimental Study’, IEEE
+Transactions on Knowledge and Data Engineering, 28(1), 127–146,
+(2015).
+[13]
+Bernd Hamann and Jiann-Liang Chen, ‘Data Point Selection for Piece-
+wise Linear Curve Approximation’, Computer Aided Geometric De-
+sign, 11(3), 289–301, (1994).
+[14]
+Eric Jacquet-Lagreze and Yannis Siskos, ‘Preference Disaggregation:
+20 Years of MCDA Experience’, European Journal of Operational Re-
+search, 130(2), 233–245, (2001).
+[15]
+Miłosz Kadzi´nski, Marco Cinelli, Krzysztof Ciomek, Stuart R Coles,
+Mallikarjuna N Nadagouda, Rajender S Varma, and Kerry Kirwan, ‘Co-
+constructive Development of a Green Chemistry-based Model for the
+Assessment of Nanoparticles Synthesis’, European Journal of Opera-
+tional Research, 264(2), 472–490, (2018).
+[16]
+Kyoung-jae Kim and Hyunchul Ahn, ‘A Corporate Credit Rating
+Model Using Multi-class Support Vector Machines with an Ordinal
+Pairwise Partitioning Approach’, Computers & Operations Research,
+39(8), 1800–1811, (2012).
+[17]
+Yanghao Li, Naiyan Wang, Jiaying Liu, and Xiaodi Hou, ‘Factorized
+Bilinear Models for Image Recognition’, in Proceedings of the IEEE
+International Conference on Computer Vision, pp. 2079–2087, (2017).
+[18]
+Yanzhu Liu, Adams Wai Kin Kong, and Chi Keong Goh, ‘Deep Or-
+dinal Regression Based on Data Relationship for Small Datasets’, in
+Proceedings of the 26th International Joint Conference on Artiﬁcial In-
+telligence, IJCAI’17, pp. 2372–2378. AAAI Press, (2017).
+[19]
+Yin Lou, Rich Caruana, and Johannes Gehrke, ‘Intelligible Models
+for Classiﬁcation and Regression’, in Proceedings of the 18th ACM
+SIGKDD International Conference on Knowledge Discovery and Data
+Mining, pp. 150–158. ACM, (2012).
+[20]
+Yin Lou, Rich Caruana, Johannes Gehrke, and Giles Hooker, ‘Accurate
+Intelligible Models with Pairwise Interactions’, in Proceedings of the
+19th ACM SIGKDD International Conference on Knowledge Discovery
+and Data Mining, pp. 623–631. ACM, (2013).
+[21]
+David G Luenberger, Yinyu Ye, et al., Linear and Nonlinear Program-
+ming, volume 2, Springer, 1984.
+[22]
+Peter McCullagh, ‘Regression Models for Ordinal Data’, Journal of the
+Royal Statistical Society: Series B (Methodological), 42(2), 109–127,
+(1980).
+[23]
+Zhenxing Niu, Mo Zhou, Le Wang, Xinbo Gao, and Gang Hua, ‘Or-
+dinal Regression with Multiple Output CNN for Age Estimation’, in
+Proceedings of the IEEE Conference on Computer Vision and Pattern
+Recognition, pp. 4920–4928, (2016).
+[24]
+Steffen Rendle, ‘Factorization Machines’, in 2010 IEEE International
+Conference on Data Mining, pp. 995–1000. IEEE, (2010).
+[25]
+Steffen Rendle, ‘Factorization Machines with Libfm’, ACM Transac-
+tions on Intelligent Systems and Technology (TIST), 3(3), 57, (2012).
+[26]
+Steffen Rendle, Zeno Gantner, Christoph Freudenthaler, and Lars
+Schmidt-Thieme, ‘Fast Context-aware Recommendations with Factor-
+ization Machines’, in Proceedings of the 34th International ACM SIGIR
+Conference on Research and Development in Information Retrieval, pp.
+635–644. ACM, (2011).
+[27]
+Jason DM Rennie and Nathan Srebro, ‘Loss Functions for Preference
+Levels: Regression with Discrete Ordered Labels’, in Proceedings of
+the IJCAI Multidisciplinary Workshop on Advances in Preference Han-
+dling, pp. 180–186. Kluwer Norwell, MA, (2005).
+[28]
+Herbert Robbins and Sutton Monro, ‘A Stochastic Approximation
+Method’, The annals of mathematical statistics, 400–407, (1951).
+[29]
+Alex J Smola and Bernhard Sch¨olkopf, ‘A Tutorial on Support Vector
+Regression’, Statistics and Computing, 14(3), 199–222, (2004).
+[30]
+Bing-Yu Sun, Jiuyong Li, Desheng Dash Wu, Xiao-Ming Zhang, and
+Wen-Bo Li, ‘Kernel Discriminant Learning for Ordinal Regression’,
+IEEE Transactions on Knowledge and Data Engineering, 22(6), 906–
+910, (2009).
+[31]
+Michael Tsang, Hanpeng Liu, Sanjay Purushotham, Pavankumar Mu-
+rali, and Yan Liu, ‘Neural Interaction Transparency (NIT): Disentan-
+gling Learned Interactions for Improved Interpretability’, in Advances
+in Neural Information Processing Systems, pp. 5804–5813, (2018).
+[32]
+Joel Vaughan, Agus Sudjianto, Erind Brahimi, Jie Chen, and Vijayan N
+Nair, ‘Explainable Neural Networks Based on Additive Index Models’,
+ArXiv preprint ArXiv:1806.01933, (2018).
+[33]
+Ruoxi Wang, Bin Fu, Gang Fu, and Mingliang Wang, ‘Deep & Cross
+Network for Ad Click Predictions’, in Proceedings of the ADKDD’17,
+p. 12. ACM, (2017).
+[34]
+Jun Xu, Wei Zeng, Yanyan Lan, Jiafeng Guo, and Xueqi Cheng, ‘Mod-
+eling the Parameter Interactions in Ranking SVM with Low-rank Ap-
+proximation’, IEEE Transactions on Knowledge and Data Engineering,
+31(6), 1181–1193, (2018).
+8
+
+===== PAGE 9 =====
+Supplementary Materials for ‘Explainable Ordinal
+Factorization Model: Deciphering the Effects of
+Attributes by Piece-wise Linear Approximation’
+Mengzhuo Guoa,b, Zhongzhi Xub, Qingpeng Zhangb,∗, Xiuwu Liaoa, Jiapeng Liua
+aSchool of Management, Xi’an Jiaotong University
+bSchool of Data Science, City University of Hong Kong
+Abstract
+This ﬁle contains supplementary materials for the submission ‘Explainable Or-
+dinal Factorization Model: Deciphering the Effects of Attributes by Piece-wise
+Linear Approximation’.
+Keywords: Supplementary Materials
+1. Experimental results for the proposed XOFM with monotonicity constraints.
+We validate the performance of the proposed XOFM with monotonicity con-
+straints (Section 3.5) by applying it to evaluating university. The dataset contains
+the best Chinese University (CU) rankings in 20181. The involved attributes are
+described in Table 1. Apparently, all attributes have monotonically increasing
+preference directions by their nature, thus we apply the proposed XOFM with
+monotonicity constraints and optimize the parameters using the adapted algorithm
+introduced in Section 3.5. To compare the results, we also select a traditional ordi-
+nal regression model UTADIS that is widely used to handle monotonic constraints
+as a baseline model [1]. Following the rules in our study, we ﬁrst use a ﬁve-fold
+∗Corresponding author
+Email addresses: guomengzhuo@stu.xjtu.edu.cn (Mengzhuo Guo),
+zhongzhxu2-c@my.cityu.edu.hk (Zhongzhi Xu),
+qingpeng.zhang@cityu.edu.hk (Qingpeng Zhang),
+liaoxiuwu@mail.xjtu.edu.cn (Xiuwu Liao), jiapengliu@mail.xjtu.edu.cn
+(Jiapeng Liu)
+1http://www.shanghairanking.com/Chinese universities Rankings/Overall-Ranking-
+2018.html
+Preprint submitted to Arxiv
+November 14, 2019
+
+===== PAGE 10 =====
+cross validation process to examine the performances and report the average Acc
+and MAE results. At last, we use all data to learn the marginal value functions
+and interaction effects.
+Table 1: Descriptions for attributes in Chinese University data.
+Attr.
+Description
+g1 Quality of incoming students
+Average scores of freshmen in National College Entrance Exam
+g2 Employment rate
+The employment rate of bachelors
+g3 Reputation
+Donations from sociality
+g4 Scale of research
+Number of publications in Scopus
+g5 Quality of research
+Field weighted citation impact
+g6 Top research achievements
+1% most cited publications in the world
+g7 Top scholars
+Chinese most cited researchers
+g8 Technology service
+Income from industry
+g9 Technology transfer
+Income from technology transfer
+g10 Internationality
+Ratio of international students
+Table 2 presents the Acc and MAE results given different predeﬁned num-
+bers of sub-intervals. We observe that although the adapted XOFM constrains the
+monotonicity of the attributes, it achieves high predictive performances. Although
+a larger number of predeﬁned sub-intervals increases the model complexity, it may
+cause data sparsity, thereby decreasing the model performance (see the result ob-
+tained by UTADIS when γ changes from 4 to 5). The adapted XOFM can reduce
+the impact of sparse data and perform better than UTADIS when γ is larger.
+Table 2: The average results for CU dataset.
+γj
+1
+2
+3
+4
+5
+Acc (XOFM)
+0.826
+0.909
+0.909
+0.950
+0.950
+MAE (XOFM)
+0.182
+0.091
+0.091
+0.049
+0.049
+Acc (UTADIS)
+0.840
+0.901
+0.917
+0.934
+0.926
+MAE (UTADIS)
+0.160
+0.009
+0.083
+0.066
+0.074
+Then, we use the whole data as the training data to derive marginal value func-
+tions and interaction effects, and depict them in Figures 1 and 2, respectively. In
+Figure 1, the obtained marginal value functions are monotonic as required and
+tend to be smooth because the λ1 regularizes the changes of marginal values of
+two consecutive characteristic points. Moreover, it can be observed that attribute
+g1 (Quality of incoming students) is the most important one because it has the
+maximal share in the marginal values among all attributes. Figure 2 presents inter-
+action effects of all pairwise interacting attributes. The positive value means that
+2
+
+===== PAGE 11 =====
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+0.00
+0.25
+0.50
+0.75
+(a) Marginal value function
+for attribute g1.
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+0.000
+0.004
+0.009
+0.013
+(b) Marginal value function
+for attribute g2.
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+0.000
+0.008
+0.017
+0.025
+(c) Marginal value function
+for attribute g3.
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+0.000
+0.009
+0.018
+0.026
+(d) Marginal value function
+for attribute g4.
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+0.000
+0.014
+0.029
+0.043
+(e) Marginal value function
+for attribute g5.
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+0.000
+0.008
+0.017
+0.025
+(f) Marginal value function
+for attribute g6.
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+0.000
+0.008
+0.017
+0.025
+(g) Marginal value function
+for attribute g7.
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+0.000
+0.009
+0.017
+(h) Marginal value function
+for attribute g8.
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+0.000
+0.008
+0.017
+0.025
+(i) Marginal value function
+for attribute g9.
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+0
+0.000
+0.014
+0.027
+0.041
+(j) Marginal value function
+for attribute g10.
+Figure 1: The obtained normalized marginal value functions for Chinese University dataset.
+3
+
+===== PAGE 12 =====
+if we keep one attribute value unchanged, their interaction will positively affect
+the global value along with the increase of the other attribute, thereby maintaining
+the assumption that the attributes are monotonic. Moreover, the color represents
+the intensity of such interaction effect of the corresponding sub-intervals. From
+the ﬁgure, not all pairwise attributes have strong co-effects on the global value.
+Many of them have very weak effects on most of sub-intervals, but the attribute g1
+has stronger interacting effects with other attributes due to its higher importance
+explored in Figure 1. Another interesting pattern is that such interacting effects
+are usually enhanced in some speciﬁc intervals and then are declined. The reason
+is that we use the project gradient descent algorithm to satisfy the assumption of
+monotonicity, and the effects on the parameters are similar to the L0 normaliza-
+tion, thereby causing most of the interacting effects being zero.
+g2
+g1
+g3
+g1
+g4
+g1
+g5
+g1
+g6
+g1
+g7
+g1
+g8
+g1
+g9
+g1
+g10
+g1
+g3
+g2
+g4
+g2
+g5
+g2
+g6
+g2
+g7
+g2
+g8
+g2
+g9
+g2
+g10
+g2
+g4
+g3
+g5
+g3
+g6
+g3
+g7
+g3
+g8
+g3
+g9
+g3
+g10
+g3
+g5
+g4
+g6
+g4
+g7
+g4
+g8
+g4
+g9
+g4
+g10
+g4
+g6
+g5
+g7
+g5
+g8
+g5
+g9
+g5
+g10
+g5
+g7
+g6
+g8
+g6
+g9
+g6
+g10
+g6
+g8
+g7
+g9
+g7
+g10
+g7
+g9
+g8
+g10
+g8
+g10
+g9
+0.000
+0.008
+0.016
+0.024
+0.032
+0.040
+0.048
+0.056
+0.064
+0.072
+Figure 2: Heat-maps for interaction effects of all pairwise attributes.
+4
+
+===== PAGE 13 =====
+References
+[1] M. Doumpos, C. Zopounidis, Multicriteria Decision Aid Classiﬁcation Meth-
+ods, volume 73, Springer Science & Business Media, 2002.
+5

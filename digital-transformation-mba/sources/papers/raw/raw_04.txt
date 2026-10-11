@@ -1,0 +1,3378 @@
+
+===== PAGE 1 =====
+arXiv:1910.05485v1  [cs.LG]  12 Oct 2019
+A preference learning framework for multiple criteria sorting
+with diverse additive value models and valued assignment examples
+Jiapeng Liua,∗, Mi losz Kadzi´nskib, Xiuwu Liaoa, Xiaoxin Maoa, Yao Wanga
+aCenter of Intelligent Decision-making and Machine Learning, School of Management, Xi’an Jiaotong University, Xi’an, 710049,
+Shaanxi, P.R. China
+bInstitute of Computing Science, Poznan University of Technology, Piotrowo 2, 60-965 Pozna´n, Poland
+Abstract
+We present a preference learning framework for multiple criteria sorting. We consider sorting procedures apply-
+ing an additive value model with diverse types of marginal value functions (including linear, piecewise-linear,
+splined, and general monotone ones) under a uniﬁed analytical framework. Diﬀerently from the existing sorting
+methods that infer a preference model from crisp decision examples, where each reference alternative is assigned
+to a unique class, our framework allows to consider valued assignment examples in which a reference alternative
+can be classiﬁed into multiple classes with respective credibility degrees. We propose an optimization model
+for constructing a preference model from such valued examples by maximizing the credible consistency among
+reference alternatives. To improve the predictive ability of the constructed model on new instances, we employ
+the regularization techniques. Moreover, to enhance the capability of addressing large-scale datasets, we intro-
+duce a state-of-the-art algorithm that is widely used in the machine learning community to solve the proposed
+optimization model in a computationally eﬃcient way. Using the constructed additive value model, we deter-
+mine both crisp and valued assignments for non-reference alternatives. Moreover, we allow the Decision Maker
+to prioritize importance of classes and give the method a ﬂexibility to adjust classiﬁcation performance across
+classes according to the speciﬁed priorities. The practical usefulness of the analytical framework is demonstrated
+on a real-world dataset by comparing it to several existing sorting methods.
+Keywords:
+Decision analysis, Multiple criteria sorting, Preference learning, Additive value function, Valued
+decision examples, Class priority
+1. Introduction
+With a rapid development of information technology, organizations have accumulated and stored a vast quantity
+of data from various sources, such as manufacturing, marketing, ﬁnance, tourism, agriculture, transportation,
+or ecosystem. The availability of data resources helps organizations mine useful information and make better
+informed decisions, including optimizing operations, deepening customers engagement, preventing threats and
+fraud, and capitalizing on new sources of revenue.
+Many of such decisions concern classiﬁcation of a set of
+alternatives into pre-deﬁned and preference-ordered classes according to their evaluations on multiple criteria.
+Such a scenario is of interest in sorting or ordinal classiﬁcation problems [10, 15]. For example, in the ﬁeld of
+credit rating, ﬁnancial institutions predict the credit risk of a prospective debtor (e.g., an individual, a company,
+or a government) and assign a grade (e.g., from AAA to B- in Standard & Poor’s) to each debtor, where
+grades are intended to represent probability of default. Another example comes from medical diagnostics, where
+∗Corresponding author
+Email addresses: jiapengliu@mail.xjtu.edu.cn (Jiapeng Liu), milosz.kadzinski@cs.put.poznan.pl (Mi losz Kadzi´nski),
+liaoxiuwu@mail.xjtu.edu.cn (Xiuwu Liao), maoxiaoxin29@stu.xjtu.edu.cn (Xiaoxin Mao), yao.s.wang@gmail.com (Yao Wang)
+Preprint submitted to European Journal of Operational Research
+October 15, 2019
+
+===== PAGE 2 =====
+doctors evaluate physical conditions of patients and classify them into groups representing diﬀerent disease grades
+according to the observed symptoms.
+The practical signiﬁcance of sorting problems has motivated researchers to develop multiple streams of meth-
+ods for addressing such problems, including (a) value-driven methods (e.g., [10, 15, 17, 18]), (b) outranking-based
+methods (e.g., [1, 5, 7, 27, 31]), and (c) rule induction-oriented models (e.g., [14, 20]). In this paper, we focus on
+the value-driven sorting procedure, which employs a value function as the preference model and assigns a numer-
+ical score to each alternative by aggregating its performances on diﬀerent criteria. The value function model is
+widely used and highly appreciated by the Multiple Criteria Decision Aiding (MCDA) community due to its rela-
+tively easy computation and intuitive interpretation [17]. In the sorting context, the assignment of an alternative
+is usually determined by comparing its value to thresholds that explicitly delimit consecutive classes (threshold-
+based sorting procedure, see [10]) or reference alternatives that implicitly characterize each class (example-based
+sorting procedure, see [15]).
+Under the assumption on the preferential independence of criteria, the value of an alternative can be expressed
+as the sum of marginal value functions on each criterion [22, 29], and such a preference model is called additive
+value function. There are various types of additive value models for characterizing the preferences over alternatives
+on the individual criteria. A basic form of an additive-based value model is composed of linear marginal value
+functions, where all marginal values are deﬁned as linear functions on the performance ranges of individual
+criteria. Such a value function can be seen as a simple weighted average aggregation model and is relatively easy
+to explain to a non-experienced Decision Maker (DM). However, the ability of such a value function for addressing
+complex decision structure is rather limited due to incorporating an assumption on the linear form. Another
+way of modeling marginal values is to use piecewise-linear marginal value functions, which have been used in the
+UTADIS family [10]. The advantage of using piecewise-linear marginal value function consists in the possibility
+of reﬂecting various decision policies such as risk aversion or risk seeking attitude. This capability enhances its
+appropriateness and practical usefulness for a wide range of applications [23]. Nevertheless, such a type of value
+function is criticized for its lack of smoothness, which may cause a sudden change in slope at breakpoints and
+hence limits their interpretability in some contexts [29]. To overcome the shortcoming of piecewise-linear marginal
+value functions, [29] proposed to use cubic splines for constructing marginal value functions. A cubic spline is
+a set of polynomials of degree three, which is continuous and has continuous ﬁrst- and second-order derivatives
+at breakpoints [16, 29]. The continuity character of splined marginal value functions makes them advantageous
+in terms of interpreting human preferences. Another appreciated model is the general monotone value function,
+which is deﬁned by marginal values at characteristic points corresponding to all unique performance levels. Such
+a preference model makes only the monotonicity assumption on general shape of marginal value functions, and
+therefore proves to be the most ﬂexible value function model to represent human preferences [19].
+This paper introduces a new analytical framework for multiple criteria sorting problems. We consider linear,
+piecewise-linear, splined, and general monotone value functions under a uniﬁed framework, in which the DM is
+allowed to refer to a desired type of value function. We aim to learn an additive value model from a given set
+of holistic decision examples (also called training samples) composed of a set of reference alternatives and their
+desired assignments. The latter ones could come from past decisions provided by the DM, such as historical
+credit rating reports or past patient classiﬁcation records. Diﬀerently from the existing sorting methods that
+consider crisp assignments, where each reference alternative is deﬁnitely assigned to a unique class, our framework
+allows for taking into account valued decision examples, in which each reference alternative can be classiﬁed
+into multiple classes with respective credibility degrees [3]. Such an imprecise assignment has many potential
+applications in business and management (e.g., funds granting, credit approval, medical diagnostics), when the
+DM is unconﬁdent about the desired assignments of alternatives or the collected information is not fully credible.
+To learn a value function model from valued decision examples, we investigate the preference relation for any
+2
+
+===== PAGE 3 =====
+pair of reference alternatives by considering each alternative’s possible assignment outcome, and then propose an
+original optimization model to simultaneously account for diﬀerent objectives with respective credibility degrees
+concerning each possible preference relation for a pair of alternatives. The targets involved in the proposed
+optimization model deﬁnitely enhance value diﬀerence between a pair of reference alternatives such that one
+alternative is always assigned to a class better than the other, and/or equalize values of a pair of reference
+alternatives, with a certain credibility, such that they could be classiﬁed into the same class. In this way, the
+constructed preference model highlights the most certain part in the valued decision examples, and keeps a vague
+preference relation for a pair of alternatives among which one cannot indicate a better one.
+In this work, learning a value function model from valued decision examples is formulated within the regu-
+larization framework by considering both the model’s ﬁtting ability and its complexity simultaneously. In the
+context of valued assignment, the ﬁtting ability of a value function model is measured by accounting for the credi-
+ble diﬀerence between the comprehensive values for all pairs of reference alternatives. In other words, a “best-ﬁt”
+value function model should be as credibly consistent with the preference relations between reference alternatives
+as possible. However, a value function model that “best-ﬁts” the given decision examples can be very complex
+and may encounter the over-ﬁtting problem, that is, the constructed model ﬁts the decision examples well but
+has poor generalization performance on new instances. For a comprehensive discussion on this issue, one can refer
+to [23]. To improve the predictive ability of a value function model, [6, 11, 23] introduce regularization terms
+for controlling the model’s complexity and deriving a simple value function model while maintaining its ﬁtting
+ability. From the viewpoint of the statistical learning theory [33, 25], a proper complexity control contributes
+to avoiding the over-ﬁtting problem and improving the model’s generalization ability. In this paper, as the an-
+alytical framework is applicable to linear, piecewise-linear, splined, and general monotone value functions, we
+deﬁne the complexity measure for each type of value function model and formulate the learning problem in the
+uniﬁed regularization framework. In this way, the constructed value function model makes a trade-oﬀbetween the
+ﬁtting ability and the model’s complexity, and improves its generalization ability on new instances. Apart from
+the methodological advance from the statistical learning theory, we also introduce a state-of-the-art algorithm
+named the alternating direction method of multipliers (ADMM) [2] to address the learning problem and improve
+computational eﬃciency for dealing with large-scale datasets. Using ADMM, the learning problem is solved by
+decomposing the original problem into a series of small-size optimization problems, which can be easily addressed
+without extraordinary eﬀorts. Moreover, the implementation of ADMM for the learning problem is well suited
+to distributed optimization, and has the advantage of parallel computation.
+Once a value function model is constructed from the given valued decision examples, we can use the con-
+structed preference model to predict the assignment for a new alternative. In this paper, we provide two types of
+assignments in this context: crisp and valued. The crisp assignment speciﬁes a class to which the alternative can
+be assigned so that the greatest credible consistency between this alternative and all reference alternatives would
+be obtained. The valued assignment associates a credibility degree with each class for the alternative which is
+derived by accounting for the credible consistency between this alternative and all reference alternatives when
+this alternative is put in each class.
+In addition, we consider a complementary component in the analytical framework which allows to adjust
+classiﬁcation performance across classes. The appeal of such a component stems from the fact that in may real-
+world applications the DM may want to prioritize the importance for classes. For example, in medical diagnostics
+where a doctor aims to classify patients into the “healthy” and “unhealthy” groups, the “unhealthy” group is prior
+to the “healthy” group although the latter is preferred to the former. This is due to that the doctor usually hopes
+to achieve as high classiﬁcation performance as possible on the “unhealthy” group, because incorrect prediction
+will delay necessary treatment for patients. On the other hand, the classiﬁcation performance on the “healthy”
+group is relatively less important, because classifying a healthy person as unhealthy only results in more medical
+3
+
+===== PAGE 4 =====
+examination for her/him. To implement ﬂexible adjustment of classiﬁcation performance across classes, we require
+the DM to specify a priority ranking of all classes, rather than precise values of priorities for each class, which
+therefore is less demanding in terms of the required cognitive eﬀort. Then, we discuss a method for adjusting
+a classiﬁcation performance across classes according to the speciﬁed priority ranking. This method pays more
+attention to classes with greater priorities and enhances the credible consistency between reference alternatives
+that can be assigned to these classes and other reference alternatives so that the classiﬁcation performance on
+these classes is improved.
+We validate the classiﬁcation performance of four variants of the analytical framework using linear, piecewise-
+linear, splined, and general monotone value functions on a real-world dataset in terms of Top-N accuracies and
+Kendall’s tau coeﬃcient. Speciﬁcally, we examine these measures achieved by the four variants on valued decision
+examples with diﬀerent credibility distribution which are generated by simulated value functions with diﬀerent
+complexity. Then, we investigate the ability of the proposed method for adjusting classiﬁcation performance
+across classes according to the speciﬁed priority ranking of the classes.
+The remainder of this paper is organized in the following way.
+In Section 2, we present the analytical
+framework for learning diverse types of value function models from valued decision examples and give the ﬂexible
+method for adjusting classiﬁcation performance across classes. In Section 3, we apply the analytical framework
+to a real-world dataset. Section 4 concludes and discusses future work for this study.
+2. The analytical framework for multiple criteria sorting problems
+2.1. Additive value functions composed of linear, piecewise-linear, splined and general marginal value functions
+Let us consider a decision problem regarding m alternatives A = {a1, ..., am} evaluated in terms of n criteria
+G = {g1, ..., gn}. Each criterion gj ∈G is used to assess an alternative a ∈A from a certain perspective, and the
+performance of a on gj is denoted by gj(a). All criteria are assumed to be monotone (gain- or cost-type), i.e., for
+any alternative a, either the greater gj(a), the better is a on gj (in case of gain-type criteria), or the less gj(a),
+the better is a on gj (in case of cost-type criteria). For dealing with non-monotonic criteria, see [12, 23, 28]. For
+the sake of simplicity, but without loss of generality, we suppose that all criteria are of gain-type and that the
+performances on criteria have a monotone increasing direction of preferences. Let Xj = [αj, βj] be the bounded
+interval of the performances on criterion gj, where αj and βj are the worst and best performances, respectively.
+For any alternative a ∈A, we shall use a value function in the following additive form as the preference model
+to aggregate the performances of a on multiple criteria [22]:
+U (a) =
+n
+X
+j=1
+uj (gj (a)),
+where uj (·), j = 1, ..., n, are monotone non-decreasing marginal value functions. The value function assigns
+a numerical score to each alternative, which is used to represent its comprehensive value and impose a preference
+relation on the set of alternatives.
+The analytical framework introduced in this paper admits various types of marginal value functions including
+(a) linear, (b) piecewise-linear, (c) splined shaped, and (d) general monotone ones.
+In case marginal value
+functions are assumed to be linear, uj (·), j = 1, ..., n, can be constructed as follows:
+uj (x) = wj
+x −αj
+βj −αj
+,
+x ∈[αj, βj] ,
+where wj = uj (βj) is the maximal share of each criterion gj in the comprehensive value and can be understood
+4
+
+===== PAGE 5 =====
+as a trade-oﬀweight of gj. To normalize the value function within the interval [0,1], we usually require
+wj ≥0, j = 1, ..., n,
+n
+X
+j=1
+wj = 1.
+
+
+
+
+
+
+
+ELINEAR
+BASE
+Note that, for linear marginal value functions uj (·), j = 1, ..., n, the vector θ = (w1, ..., wn)T is the only parameter
+to be estimated. In particular, the comprehensive value of alternative a can be formulated with respect to θ as
+U (a) = θTV (a), where V (a) =
+
+g1(a)−α1
+β1−α1 , ..., gn(a)−αn
+βn−αn
+T
+.
+In the piecewise-linear case, the performance scale [αj, βj] on each criterion gj, j = 1, ..., n, is divided into
+a number of sub-intervals, and marginal value functions uj (·) are assumed to be linear over each sub-interval.
+Suppose that the performance scale [αj, βj] on criterion gj is divided into γj equal-length sub-intervals
+
+x0
+j, x1
+j
+
+,
+
+x1
+j, x2
+j
+
+, ...,
+h
+xγj−1
+j
+, xγj
+j
+i
+, where each breakpoint is given by xk
+j = αj +
+k
+γj (βj −αj), k = 0, 1, ..., γj.
+Such
+a way of deﬁning sub-intervals is easy to implement (for other techniques, see [19]). Then, the marginal value
+corresponding to the performance gj (a) ∈
+
+xk
+j , xk+1
+j
+
+, k = 0, 1, ..., γj −1, is deﬁned with linear interpolation:
+uj (gj (a)) = uj
+ xk
+j
+
++ gj (a) −xk
+j
+xk+1
+j
+−xk
+j
+ uj
+ xk+1
+j
+
+−uj
+ xk
+j
+
+.
+Therefore, once the marginal values at breakpoints (i.e., uj
+ x0
+j
+
+= uj (αj), uj
+ x1
+j
+
+, ..., uj
+ xγj
+j
+
+= uj (βj)) are
+estimated, we can fully specify piecewise-linear marginal value functions uj (·), j = 1, ..., n. Let ∆uk
+j = uj
+ xk
+j
+
+−
+uj
+ xk−1
+j
+
+, k = 1, ..., γj, and then the marginal value corresponding to the performance gj (a) ∈
+
+xk
+j , xk+1
+j
+
+,
+k = 0, 1, ..., γj −1, can be reformulated as uj (gj (a)) =
+kP
+t=1
+∆ut
+j +
+gj(a)−xk
+j
+xk+1
+j
+−xk
+j ∆uk+1
+j
+. To normalize the value function
+within the interval [0,1], one can consider the following linear constraints:
+∆uk
+j ⩾0, k = 1, ..., γj, j = 1, ..., n,
+n
+X
+j=1
+γj
+X
+k=1
+∆uk
+j = 1,
+
+
+
+
+
+
+
+EPIECEWISE - LINEAR
+BASE
+where
+γj
+P
+k=1
+∆uk
+j is the maximal share of marginal value uj (·) in the comprehensive value, which can be inter-
+preted as a trade-oﬀweight of marginal value function uj (·). Let θ =
+ θT
+1 , ..., θT
+n
+T, θj =
+ ∆u1
+j, ..., ∆uγj
+j
+T
+for j = 1, ..., n, and V (a) =
+
+V1(a)T, ..., Vn(a)TT
+, Vj (a) =
+
+
+1, ..., 1,
+| {z }
+kj(a)
+gj(a)−x
+kj (a)
+j
+x
+kj (a)+1
+j
+−x
+kj (a)
+j
+,
+0, ..., 0
+| {z }
+γj−kj(a)−1
+
+
+
+T
+where
+kj (a) ∈{0, 1, ..., γj −1} such that gj (a) ∈
+h
+xkj(a)
+j
+, xkj(a)+1
+j
+i
+, for j = 1, ..., n. Then, in terms of θ and V (a),
+the comprehensive value of a can be formulated as U (a) = θTV (a). Note that piecewise-linear marginal value
+functions with a suﬃciently large number of sub-intervals can approximate any non-linear value function [23].
+As we use piecewise-linear marginal value functions to approximate the actual value function, rather than making
+assumptions on its form, piecewise-linear marginal value functions can be seen as a non-parametric method for
+modeling preferences.
+One noticeable disadvantage of piecewise-linear marginal value functions consists in the lack of smoothness,
+which causes a sudden change in slope at breakpoints and hence limits their interpretability in some contexts [29].
+An alternative way of constructing “natural” marginal value function is to use cubic smoothing spline, which is
+continuous and has continuous ﬁrst- and second-order derivatives at breakpoints [16, 29]. Let the performance
+5
+
+===== PAGE 6 =====
+scale [αj, βj] on each criterion gj, j = 1, ..., n, be divided into γj equal-length sub-intervals
+
+x0
+j, x1
+j
+
+,
+
+x1
+j, x2
+j
+
+,
+...,
+h
+xγj−1
+j
+, xγj
+j
+i
+, where xk
+j = αj +
+k
+γj (βj −αj), k = 0, 1, ..., γj.
+A cubic smoothing splined marginal value
+function uj (·) is a piecewise-polynomial of order three, where the k-th polynomial over the sub-interval
+
+xk−1
+j
+, xk
+j
+
+,
+k = 1, ..., γj has the following form:
+Sk
+j (x) = sk,0
+j
++ sk,1
+j x + sk,2
+j
+x2 + sk,3
+j x3, x ∈
+
+xk−1
+j
+, xk
+j
+
+,
+where sk,0
+j
+, sk,1
+j , sk,2
+j
+and sk,3
+j
+are parameters that need to be determined. Then, marginal value function uj (·)
+can be formulated as:
+uj (x) =
+γj
+X
+k=1
+I
+ x ∈
+
+xk−1
+j
+, xk
+j
+
+Sk
+j (x),
+where I
+ x ∈
+
+xk−1
+j
+, xk
+j
+
+is an indicator function deﬁned as follows:
+I
+ x ∈
+
+xk−1
+j
+, xk
+j
+
+=
+(
+1,
+x ∈
+
+xk−1
+j
+, xk
+j
+
+,
+0,
+x /∈
+
+xk−1
+j
+, xk
+j
+
+.
+To ensure the continuity up to the second-order derivative and the monotonicity and normalization of cubic
+smoothing splined marginal value functions uj (·), j = 1, ..., n, we can consider the following linear constraints:
+(LC1) Sk
+j
+ xk
+j
+
+= Sk+1
+j
+ xk
+j
+
+, k = 1, ..., γj −1, j = 1, ..., n,
+(LC2)
+dSk
+j (x)
+dx
+
+x=xk
+j
+=
+dSk+1
+j
+(x)
+dx
+
+x=xk
+j
+, k = 1, ..., γj −1, j = 1, ..., n,
+(LC3)
+d2Sk
+j (x)
+dx2
+
+x=xk
+j
+=
+d2Sk+1
+j
+(x)
+dx2
+
+x=xk
+j
+, k = 1, ..., γj −1, j = 1, ..., n,
+(LC4) Sk
+j
+ xk
+j
+
+⩾0, k = 0, 1, ..., γj, j = 1, ..., n,
+(LC5)
+dSk
+j (x)
+dx
+
+x=xk
+j
+⩾0, k = 0, 1, ..., γj, j = 1, ..., n,
+(LC6) S1
+j (αj) = 0, j = 1, ..., n,
+(LC7)
+n
+X
+j=1
+Sγj
+j (βj) = 1,
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ESPLINE
+BASE
+where constraints (LC1), (LC2), (LC3) guarantee the continuity of uj (·) and their ﬁrst- and second-order
+derivatives at breakpoints, respectively. Constraints (LC4) and (LC5) ensure the non-negativity of piecewise-
+polynomials Sk
+j (·) and their ﬁrst-order derivatives at breakpoints, respectively, which are used to make uj (·)
+non-negative and monotone non-decreasing at breakpoints. Note that constraints (LC4) and (LC5) are not suf-
+ﬁcient conditions for deriving non-negative monotone non-decreasing marginal value functions over the whole
+performance scales, since they only work for breakpoints.
+However, in case the non-negativity or monotone
+non-decreasing properties do not hold, we can divide the performance scales into more reﬁned sub-intervals and
+incorporate more constraints until deriving desired marginal value functions. This method is easy to implement
+without more dedicated techniques. Another possible way to generate non-negative polynomials is to use semidef-
+inite programming models (refer to [29] for more details). Constraints (LC6) and (LC7) normalize marginal value
+functions, where Sγj
+j (βj) can be understood as the trade-oﬀweight of marginal value function uj (·) in the compre-
+hensive value. Analogously to piecewise-linear marginal value function, cubic smoothing splined marginal value
+6
+
+===== PAGE 7 =====
+function is also a non-parametric model for modeling preferences. Let θ =
+ θT
+1 , ..., θT
+n
+T, θj =
+
+θ1T
+j , ..., θγjT
+j
+T
+for j = 1, ..., n, θk
+j =
+
+sk,0
+j
+, sk,1
+j , sk,2
+j
+, sk,3
+j
+T
+for k = 1, ..., γj, and V (a) =
+
+V1 (a)T , ..., Vn (a)TT
+, Vj (a) =
+
+V1
+j (a)T , ..., Vγj
+j (a)TT
+for j = 1, ..., n, Vk
+j (a) =
+
+
+
+
+1, gj (a) , (gj (a))2, (gj (a))3T
+,
+if gj (a) ∈
+
+xk−1
+j
+, xk
+j
+
+,
+(0, 0, 0, 0)T,
+if gj (a) /∈
+
+xk−1
+j
+, xk
+j
+
+,
+for k = 1, ..., γj, and then the comprehensive value of a can be formulated as U (a) = θTV (a).
+When it comes to general monotone value function, it is a very ﬂexible preference model as it considers
+all monotone non-decreasing marginal value functions (rather than linear, piecewise-linear, or splined shaped
+marginal value functions) and does not involve any arbitrary or restrictive parametrization [4, 15]. Let χj =
+{x ∈R | ∃a ∈A such that gj (a) = x} and x0
+j = αj, x1
+j, ..., xmj
+j
+= βj be ordered performance values of χj, xk
+j <
+xk+1
+j
+, k = 0, 1, ..., mj−1, mj = |χj| ⩽m. In deﬁning general monotone marginal value functions uj (·), j = 1, ..., n,
+all marginal values corresponding to characteristic points xk
+j ∈χj, k = 0, 1, ..., mj, j = 1, ..., n, are parameters
+to be determined by considering the following linear constraints which are used to ensure monotonicity and
+normalization:
+uj
+ xk
+j
+
+⩽uj
+ xk+1
+j
+
+, k = 0, 1, ..., mj −1, j = 1, ..., n,
+uj (αj) = 0, j = 1, ..., n,
+n
+X
+j=1
+uj (βj) = 1,
+
+
+
+
+
+
+
+
+
+
+
+
+
+EGENERAL
+BASE
+where uj (βj) represents the trade-oﬀweight of marginal value function uj (·) in the comprehensive value. Since
+we only make the monotonicity assumption on general shape of marginal value functions, it can be deemed as a
+non-parametric preference model [30]. Let θ =
+ θT
+1 , ..., θT
+n
+T, θj =
+ uj
+ x0
+j
+
+, ..., uj
+ xmj
+j
+T for j = 1, ..., n, and
+V (a) =
+
+V1(a)T, ..., Vn(a)TT
+, Vj (a) =
+ v0
+j (a) , ..., vmj
+j
+(a)
+T for j = 1, ..., n, vk
+j (a) =
+(
+1,
+if gj (a) = xk
+j ,
+0,
+if gj (a)̸ = xk
+j ,
+for k = 0, 1, ..., mj. Then, the comprehensive value of a can be formulated as U (a) = θTV (a).
+To sum up, for any type of the considered value functions in the above, the comprehensive value of a can
+be written in a linear form U (a) = θTV (a), where θ is the intrinsic character of the employed value function
+and irrelevant for an alternative, while V (a) depends on the performances of the corresponding alternative a
+on multiple criteria. In this perspective, we use a linear model to approximate preferences, although the actual
+value function model could be non-linear.
+2.2. Constructing additive value function model from valued decision examples
+We aim to construct an additive value function model from a given set of decision examples. In the uniﬁed
+analytical framework, the constructed additive value model can be composed of any type of linear, piecewise-
+linear, splined, or general marginal value functions introduced in Section 2.1. In contrast to traditional sorting
+problems, where each reference alternative is assigned precisely to only one decision class, the sorting problem
+considered in this study involves a set of valued decision examples, each of which assigns a reference alternative to
+more than one class with respective credibility degrees. Let us use the following notation to describe the considered
+sorting problem: CL = {Cl1, Cl2, ..., Clq} is a set of predeﬁned and preference-ordered decision classes, such that
+Cls+1 is preferred to Cls (denoted by Cls+1 ≻Cls), s = 1, ..., q −1. Suppose that the set of alternatives A can
+be divided into two subsets – the reference one AR and the non-reference one AT . For any reference alternative
+a ∈AR, it could be assigned to multiple classes, and we use a vector σ (a) = (σ1 (a) , ..., σq (a))T to represent the
+credibility degrees for each possible assignment, i.e., a is assigned to class Cls with a credibility degree σs (a),
+s = 1, ..., q. Note that for normalization we require
+qP
+s=1
+σs (a) = 1 and σs (a) ⩾0 for s = 1, ..., q. Moreover,
+a crisp decision example, which is considered in traditional sorting problems, is a particular case of a valued
+7
+
+===== PAGE 8 =====
+decision example, where there exists s ∈{1, ..., q} such that σs (a) = 1, and σs′ (a) = 0 for s′ ∈{1, ..., q},
+s′̸ = s. The assignment for each non-reference alternative a ∈AT needs to be determined using the constructed
+preference model.
+2.2.1. Dealing with valued assignment examples
+For a general sorting problem, we often refer to a sorting rule called example-based sorting procedure given by
+[15], which is described as follows.
+Deﬁnition 1. For any pair of alternatives ai and aj, a value function U (·) is said to be consistent with the
+assignments of ai and aj iﬀ:
+U (ai) ⩾U (aj) ⇒Cl (ai) ≿Cl (aj) ,
+(1)
+where Cl (ai) , Cl (aj) ∈CL are the assignments of ai and aj, respectively, and ≿means “at least as good
+as”. Observe that implication (1) is equivalent to:
+Cl (ai) ≻Cl (aj) ⇒U (ai) > U (aj) .
+(2)
+Deﬁnition 1 says that “if alternative ai has a value which is not less than for alternative aj, the assignment of
+ai should be at least as good as the assignment of aj”, or equivalently, “if the assignment of ai is better than
+the assignment of aj, the value of ai should be greater than the value of aj”. Thus, for any pair of reference
+alternatives ai, aj ∈AR such that ai is assigned to a class better than aj, we can infer a value function by
+maximizing the diﬀerence between U (ai) and U (aj) (i.e., U (ai) −U (aj)). The aim of doing so is two-fold: on
+the one hand, when there exists at least one value function U (·) compatible with the assignments of ai and aj
+(i.e., U (ai) −U (aj) > 0), maximizing U (ai) −U (aj) highlights the diﬀerence between U (ai) and U (aj); on the
+other hand, when no such compatible value function exists (i.e., U (ai) −U (aj) ⩽0 for all U (·)), maximizing
+U (ai) −U (aj) amounts to minimizing the inconsistency level between U (ai) and U (aj).
+In addition to the above requirements for pairs of reference alternatives that come from distinct classes,
+another target to be accounted for when inferring a value function model consists in that, the values of reference
+alternatives from the same class should be as concentrated as possible, so that consecutive classes could be clearly
+delimited. This goal can be implemented by minimizing the absolute diﬀerence between U (ai) and U (aj) (i.e.,
+|U (ai) −U (aj)|) for pairs of reference alternatives ai, aj in the same class. This target is in line with the idea
+of maximizing the distances of the correctly classiﬁed alternatives from the class thresholds in a threshold-based
+sorting procedure (e.g., the UTADIS II method [10]).
+In the context of valued decision examples, as a reference alternative could be assigned to multiple classes
+with diﬀerent credibility degrees, we can account for the above two targets for any pair of reference alternatives
+by investigating all their desired assignments and attaching each of them with a certain credibility.
+Deﬁnition 2. For any pair of reference alternatives ai, aj ∈AR, the credibility degrees for the facts that “ai
+is assigned to a better class than aj”, “both ai and aj are assigned to same class”, and “ai is assigned to
+a worse class than aj” are deﬁned as follows, respectively:
+D≻(ai, aj) =
+q
+X
+s=2
+s−1
+X
+r=1
+σs (ai) σr (aj),
+D= (ai, aj) =
+q
+X
+s=1
+σs (ai) σs (aj),
+D≺(ai, aj) =
+q−1
+X
+s=1
+q
+X
+r=s+1
+σs (ai) σr (aj).
+8
+
+===== PAGE 9 =====
+Coeﬃcients D≻(ai, aj), D= (ai, aj), and D≺(ai, aj) aggregate the credibility degrees σs (ai) and σr (aj) for all
+possible cases Cls ≻Clr, Cls = Clr, and Cls ≺Clr, respectively. Note that, for D≻(ai, aj), D= (ai, aj), and
+D≺(ai, aj), the multiplicative form σs (ai) σr (aj) is applied, because the two events “alternative ai is assigned to
+class Cls with a credibility degree σs (ai)” and “alternative aj is assigned to class Clr with a credibility degree
+σr (aj)” are independent. With the credibility degrees for the comparison between the possible assignments of ai
+and aj, we can consider to minimize the following objective for inferring a value function model:
+ξ (ai, aj) = −D≻(ai, aj) (U (ai) −U (aj)) + D= (ai, aj) |U (ai) −U (aj)| + D≺(ai, aj) (U (ai) −U (aj)) .
+Speciﬁcally, minimizing ξ (ai, aj) aims to maximize U (ai) −U (aj) with the credibility degree D≻(ai, aj) and
+minimize |U (ai) −U (aj)| with the credibility degree D= (ai, aj) as well as U (ai) −U (aj) with the credibility
+degree D≺(ai, aj). Note that we minimize |U (ai) −U (aj)| rather than (U (ai) −U (aj))2, for the case that both
+ai and aj are assigned to the same class, as in this way we keep all considered targets in the same magnitude.
+For any pair ai, aj ∈AR, it is easy to verify that ξ (ai, aj) = ξ (aj, ai). Moreover, ξ (ai, aj) has the following two
+properties.
+Property 1. For any pair of reference alternatives ai, aj ∈AR, if there exists s, s′ ∈{1, ..., q} such that s ⩾s′,
+and σr (ai) > 0 for r = s, ..., q, and σr (ai) = 0 for r = 1, ..., s −1, and σr (aj) = 0 for r = s′, ..., q, and
+σr (aj) > 0 for r = 1, ..., s′ −1, then minimizing ξ (ai, aj) amounts to maximizing U (ai) −U (aj) deﬁnitely
+as D≻(ai, aj) = 1, D= (ai, aj) = 0 and D≺(ai, aj) = 0.
+Property 2. For any pair of reference alternatives ai, aj ∈AR, if σ (ai) = σ (aj), minimizing ξ (ai, aj) includes
+minimizing |U (ai) −U (aj)| with a certain credibility degree D= (ai, aj) =
+qP
+s=1
+σs(ai)2. In particular, if
+there exists s, s′ ∈{1, ..., q} such that s ⩽s′, and σr (ai) = 1/(s′ −s + 1) for r = s, ..., s′, and σr (ai) = 0
+for r = 1, ..., s−1, s′+1, ..., q, then the credibility degree D= (ai, aj) for minimizing |U (ai) −U (aj)| becomes
+1/(s′ −s + 1) and such a value increases as s′ −s decreases. In an extreme case where s = s′ (i.e., both ai
+and aj are assigned to a unique class), minimizing ξ (ai, aj) amounts to minimizing |U (ai) −U (aj)| with
+the credibility degree D= (ai, aj) = 1.
+Property 1 states that, if the assignment of alternative ai is unanimously better than the assignment of alternative
+aj (without overlap of non-zero credibility degrees), minimizing ξ (ai, aj) is equal to maximizing U (ai) −U (aj)
+completely credibly. Property 2 reveals that, for a pair of alternatives ai and aj that have the same distribution
+of credibility degrees for each class, the more concentrated the distribution is, the more credible it is to minimize
+|U (ai) −U (aj)|. Particularly, if both ai and aj are assigned to a unique class deﬁnitely, minimizing ξ (ai, aj) is
+equal to minimizing |U (ai) −U (aj)| completely credibly. Therefore, minimizing ξ (ai, aj) accounts for not only
+diﬀerentiating the values of ai and aj for the case that ai is always assigned to a better class than aj, but also
+equalizing the values of ai and aj for the case that both ai and aj are assigned to a unique class deﬁnitely. Such
+an observation derived from Property 1 and 2 conﬁrms the appropriateness of minimizing ξ (ai, aj) for inferring
+a value function model.
+2.2.2. Regularization
+Minimizing ξ (ai, aj) for all pairs of reference alternatives ai, aj ∈AR can be seen as constructing a preference
+model that can ﬁt the valued decision examples as conﬁdently as possible. Besides the consideration of the
+model’s ﬁtting ability, we also need to account for the complexity of the preference model. As suggested by the
+statistical learning theory [11, 23], a proper complexity control contributes to avoiding the over-ﬁtting problem in
+which the constructed preference model ﬁts the decision examples well but has poor generalization performance
+on non-reference alternatives. Thus, in this study, we also incorporate the regularization techniques into the
+9
+
+===== PAGE 10 =====
+preference learning procedure to address the trade-oﬀbetween the preference model’s ﬁtting performance and
+complexity control so that the constructed preference model would have good generalization performance and be
+robust to the noise in the decision examples. The basic idea is to construct a value function model that is as
+“simple” as possible while maintaining its ﬁtting performance on decision examples. As we consider four types
+of marginal value functions in the framework, we will discuss how to deﬁne the complexity measure for them
+separately.
+For the case of linear marginal value function, deﬁning the complexity measure is relatively “simpler” than
+for the piecewise-linear, splined, and general monotone marginal value functions, since each linear marginal value
+function has only one parameter wj to estimate. In the MCDA context, since all criteria contained in a consistent
+family are relevant to the decision problem, we do not hope any criterion has an overwhelming weight than others
+[23]. Therefore, the complexity control of an additive value function can be implemented by minimizing the sum
+of squares of wj, i.e.:
+ΩLINEAR (U) = C
+n
+X
+j=1
+w2
+j ,
+where C > 0 is a constant to establish the trade-oﬀbetween the complexity control and the ﬁtting ability.
+Minimizing ΩLINEAR (U) can be seen as penalizing the square of the L2 norm of the weight vector. According to
+the statistical learning theory [16, 25], the L2 norm can regularize the weights to be smooth across criteria, thus
+avoiding some criterion having overwhelming weights.
+When it comes to piecewise-linear marginal value function, the complexity measure has been deﬁned by [23]
+as the smoothness of this function, which can be quantiﬁed as the variations of slope at breakpoints as follows:
+ΩPIECEWISE - LINEAR (U) = C1
+n
+X
+j=1
+ γj
+X
+t=1
+∆ut
+j
+!2
++ C2
+n
+X
+j=1
+γj−1
+X
+t=1
+ 
+γj
+ ∆ut+1
+j
+−∆ut
+j
+
+βj −αj
+!2
+,
+where C1, C2 > 0 are two constants to make trade-oﬀbetween the complexity control and the ﬁtting ability, and
+γj
+P
+t=1
+∆ut
+j is the trade-oﬀweight of marginal value function uj (·) in the comprehensive value, and
+γj(∆ut+1
+j
+−∆ut
+j)
+βj−αj
+measures the variation of slope of marginal value function uj (·) at breakpoint xt
+j. In this way, we not only
+avoid generating some marginal value functions that have overwhelming weights, but also pursue marginal value
+functions that are as linear as possible.
+When using splined marginal value function, the basic idea to control its complexity is to add a smoothing
+term that penalizes functions that are “too wiggly”. This can be performed by penalizing the curvature in the
+function [16], i.e.:
+ΩSPLINE (U) = C1
+n
+X
+j=1
+ Sγj
+j (βj)
+2 + C2
+n
+X
+j=1
+Z βj
+αj
+d2uj (x)
+dx2
+2
+dx
+= C1
+n
+X
+j=1
+ Sγj
+j (βj)
+2 + C2
+n
+X
+j=1
+γj
+X
+k=1
+Z xk
+j
+xk−1
+j
+ 
+d2Sk
+j
+dx2
+!2
+dx,
+where C1, C2 > 0 are two constants to take into account the trade-oﬀbetween the complexity control and the
+ﬁtting ability, and Sγj
+j (βj) is the trade-oﬀweight of marginal value function uj (·) in the comprehensive value,
+and
+nP
+j=1
+γj
+P
+k=1
+R xk
+j
+xk−1
+j
+
+d2Sk
+j
+dx2
+2
+dx is used to avoid generating marginal value functions that are too wiggly over the
+performance scales.
+As for general monotone marginal value function, we prefer functions that increase stably over the performance
+scales and thus a proper measure of its complexity can be the variation of growth rates of marginal values over
+10
+
+===== PAGE 11 =====
+consecutive sub-intervals as follows:
+ΩGENERAL (U) = C1
+n
+X
+j=1
+(uj (βj))2 + C2
+n
+X
+j=1
+mj−1
+X
+k=1
+ 
+uj
+ xk+1
+j
+
+−uj
+ xk
+j
+
+xk+1
+j
+−xk
+j
+−
+uj
+ xk
+j
+
+−uj
+ xk−1
+j
+
+xk
+j −xk−1
+j
+!2
+,
+where C1, C2 > 0 are two constants to make a trade-oﬀbetween the complexity control and the ﬁtting ability, and
+uj (βj) is the trade-oﬀweight of marginal value function uj (·) in the comprehensive value, and
+uj(xk+1
+j
+)−uj(xk
+j)
+xk+1
+j
+−xk
+j
+−
+uj(xk
+j)−uj(xk−1
+j
+)
+xk
+j −xk−1
+j
+measures the diﬀerence of growth rates of marginal values uj (·) over the consecutive sub-intervals
+
+xk−1
+j
+, xk
+j
+
+and
+
+xk
+j , xk+1
+j
+
+. By considering the above complexity measure, we avoid deriving general monotone
+marginal value functions that have very disparate growth rates over consecutive sub-intervals.
+In a joint consideration of the ﬁtting ability and the complexity control, we propose the following optimization
+model for constructing a value function model from the valued decision examples:
+(P1) : Minimize F (θ) =
+X
+ai,aj∈AR: i<j
+ξ (ai, aj) + ΩM (U)
+=
+X
+ai,aj∈AR: i<j
+(−D≻(ai, aj) (U (ai) −U (aj)) + D= (ai, aj) |U (ai) −U (aj)| + D≺(ai, aj) (U (ai) −U (aj))) + ΩM (U)
+=
+X
+ai,aj∈AR: i<j
+ (D≺(ai, aj) −D≻(ai, aj)) θT (V (ai) −V (aj)) + D= (ai, aj)
+θT (V (ai) −V (aj))
+
++ ΩM (U) ,
+s.t. EM
+BASE.
+where M ∈{LINEAR, PIECEWISE - LINEAR, SPLINE, GENERAL} so that the above model applies to dif-
+ferent types of value functions. Note that the hyper-parameters C, C1 and C2 in the complexity control ΩM (U)
+are used to make a trade-oﬀbetween the the ﬁtting ability and the complexity control. Therefore, choosing the
+hyper-parameters C, C1 and C2 signiﬁes to select between models with diﬀerent degrees of complexity, which is
+known as model selection [25]. A widely used method for solving this problem is k-fold cross-validation, where
+k is speciﬁed by a user, usually 5 or 10. Cross-validation for selecting C, C1 and C2 can be performed as follows:
+reference set AR is ﬁrst randomly partitioned into k subsets of (approximately) equal size, called folds. Next, for
+certain C, C1 and C2, k −1 folds serve as the training samples to construct an additive value function model and
+the remaining fold is used to test the constructed model. This process is repeated using diﬀerent combinations
+of k −1 folds and thus generates k possible results. Finally, the k results are averaged to evaluate the perfor-
+mance of the constructed models corresponding to certain C, C1 and C2. We choose the values of C, C1 and C2
+corresponding to the best performance as the optimal setting for these hyper-parameters.
+2.2.3. Optimization model
+It is easy to verify that both
+θT (V (a) −V (b))
+ and Ω∗(U) are convex in terms of θ and particularly, Ω∗(U) is
+in a quadratic form. Therefore, Model P1 is a constrained convex quadratic optimization problem. To solve such
+a problem, a common method is to introduce an auxiliary variable τ (ai, aj) for any pair of reference alternatives
+ai, aj ∈AR and transform P1 to the following form:
+(P1)′ : Minimize F (θ) =
+X
+ai,aj∈AR: i<j
+
+(D≺(ai, aj) −D≻(ai, aj)) θT (V (ai) −V (aj)) + D= (ai, aj) τ (ai, aj)
+
++ ΩM (U) ,
+s.t. θT (V (ai) −V (aj)) ⩽τ (ai, aj) , for ai, aj ∈AR, i < j,
+−θT (V (ai) −V (aj)) ⩽τ (ai, aj) , for ai, aj ∈AR, i < j,
+EM
+BASE.
+Then, some popular optimization packages, such as Lingo, Cplex, or Matlab can be used to address the above
+problem. However, when the number of reference alternatives is reasonably large, the number of pairs ai, aj ∈AR
+11
+
+===== PAGE 12 =====
+such that i < j is in a huge amount and this may exceed the processing ability of most solvers.
+In this paper, to enhance the practical ability for addressing large-scale problems, we introduce computational
+advances in the convex optimization ﬁeld and use the alternating direction method of multipliers (ADMM)
+to address Model P1. This method is well suited to large-scale problems and has a potential for distributed
+implementation.
+It has been widely used in statistics, machine learning, and related areas [2].
+Speciﬁcally,
+to apply ADMM for solving Model P1, we need to transform P1 to the following form:
+(P1)′′ : Minimize f (θ) + h (z) ,
+s.t. YTθ = z,
+where the vector z is an auxiliary variable, and the functions f (θ) and h (z) are formulated as:
+f (θ) =
+
+
+
+P
+ai,aj∈AR: i<j
+
+(D≺(ai, aj) −D≻(ai, aj)) (V (ai) −V (aj))T
+θ + ΩM (U) ,
+if θ satisﬁes EM
+BASE,
++∞
+otherwise.
+and
+h (z) = ∥z∥1,
+respectively, and Y is a matrix deﬁned as Y = [..., yij, ...], and each column yij is given as yij = D= (ai, aj) (V (ai) −V (aj))
+for any pair of reference alternatives ai, aj ∈AR such that i < j. Note that the objective f (θ)+h (z) is equivalent
+to the objective F in Model P1 by incorporating the constraints EM
+BASE. Moreover, we connect θ to the auxiliary
+variable z through the equation YTθ = z. In this way, the terms
+θT (V (ai) −V (aj))
+ for any pair of reference
+alternatives ai, aj ∈AR such that i < j is converted to the L1 norm of z (i.e., ∥z∥1).
+To solve model (P1)′′, ADMM consists of the following iterations [2]:
+step 1:
+θk+1 := arg min
+θ
+
+f (θ) + (ρ/2)
+YTθ −zk + uk2
+2
+
+,
+step 2:
+zk+1 := arg min
+z
+
+h (z) + (ρ/2)
+YTθk+1 −z + uk2
+2
+
+= arg min
+z
+
+∥z∥1 + (ρ/2)
+YTθk+1 −z + uk2
+2
+
+,
+step 3:
+uk+1 := uk + YTθk+1 −zk+1,
+where ρ > 0 is a constant, and the superscript k represents iteration k, and u is an auxiliary variable. The advan-
+tage of using ADMM for addressing large-scale problems derives from the following pair of observations. First,
+in step 1, we address a convex quadratic problem, in which θ is the only variable, and thus the complexity of
+solving such a problem only relies on the dimension of θ, irrelevant from the number of reference alternatives.
+Particularly, the coeﬃcient
+P
+ai,aj∈AR: i<j
+
+(D≺(ai, aj) −D≻(ai, aj)) (V (ai) −V (aj))T
+involved in this problem
+can be calculated and stored in advance since it keeps the same during the whole process. Second, when ad-
+dressing the optimization problem in step 2, although the term ∥z∥1 is not diﬀerentiable, it has been proved that
+a simple closed-form solution to this problem exists as follows [9, 2]:
+
+zk+1
+i := S1/ρ
+ 
+YTθk+1 + uk
+i
+
+=
+
+
+
+
+
+
+YTθk+1 + uk
+i −1/ρ,
+if
+
+YTθk+1 + uk
+i > 1/ρ,
+0,
+if
+
+YTθk+1 + uk
+i
+ ⩽1/ρ,
+
+YTθk+1 + uk
+i + 1/ρ,
+if
+
+YTθk+1 + uk
+i < −1/ρ.
+12
+
+===== PAGE 13 =====
+where
+
+zk+1
+i and
+
+YTθk+1 + uk
+i stands for the i-th entries of the vectors zk+1 and YTθk+1 + uk, respectively,
+and S1/ρ (·) is called the soft thresholding operator [9]. One can observe that the updating for z proceeds sequen-
+tially for its each dimension. Even if the number of reference alternatives is very large, this updating can be ﬁn-
+ished in a short time. In particular, calculating coeﬃcient
+P
+ai,aj∈AR: i<j
+
+(D≺(ai, aj) −D≻(ai, aj)) (V (ai) −V (aj))T
+in step 1 and updating z in step 2 can be implemented in a parallel manner, such as using the MapReduce frame-
+work [24]. According to the above observation, ADMM enhances the processing ability of Model P1 for large-scale
+problems and its practical usefulness for real-world applications.
+2.3. Determining assignments for non-reference alternatives
+Once the optimal solution of θ is obtained by solving Model P1, we can calculate the comprehensive values of
+both reference alternatives a ∈AR and non-reference alternatives b ∈AT using the employed value function
+model. Then, we determine the assignments of non-reference alternatives b ∈AT based on the valued decision
+examples. Because each reference alternative a ∈AR is assigned to multiple classes with respective credibility
+degrees, we cannot determine a crisp assignment for any non-reference alternatives b ∈AT . Instead, we propose
+to calculate a valued assignment for each b ∈AT with a credibility vector σ (b) = (σ1 (b) , ..., σq (b))T such that
+σr (b) ⩾0, r = 1, ..., q, and
+qP
+r=1
+σr (b) = 1. In line with the procedure for inferring a preference model from
+valued assignment example, we wish the valued assignment of b should be consistent with the valued decision
+examples as credibly as possible. Therefore, a linear programming model for deriving σ (b) = (σ1 (b) , ..., σq (b))T
+is developed as follows:
+(P2) : Minimize h (σ) =
+X
+a∈AR
+ q−1
+X
+s=1
+q
+X
+r=s+1
+σs (a) σr (b) (U (a) −U (b))
++
+q
+X
+s=1
+σs (a) σs (b) |U (a) −U (b)| −
+q
+X
+s=2
+s−1
+X
+r=1
+σs (a) σr (b) (U (a) −U (b))
+!
+,
+s.t.
+q
+X
+r=1
+σr (b) = 1,
+σr (b) ⩾0, r = 1, ..., q.
+Model P2 aims to determine a credibility vector σ (b) = (σ1 (b) , ..., σq (b))T such that the diﬀerence between U(b)
+and U(a) for each a ∈AR is optimized as credibly as possible. About Model P2, there are two useful propositions:
+Proposition 1. For each non-reference alternative b ∈AT and each class Clr, r = 1, ..., q, let us deﬁne:
+Γr (b) =
+X
+a∈AR
+ r−1
+X
+s=1
+σs (a) (U (a) −U (b)) + σr (a) |U (a) −U (b)| −
+q
+X
+s=r+1
+σs (a) (U (a) −U (b))
+!
+.
+(a) if there exists r ∈{1, ..., q} such that Γr (b) < Γr′ (b) for any r′ = 1, ..., r −1, r + 1, ..., q, the optimal
+solution of Model P2 is σr (b) = 1 and σr′ (b) = 0 for any r′ = 1, ..., r −1, r + 1, ..., q, which says that b
+should be assigned to class Clr deﬁnitely.
+(b) if there exists a subset Λ ⊆{1, ..., q} such that Γr (b) = Γr′ (b) for any r, r′ ∈Λ and Γr (b) < Γr′′ (b) for
+r ∈Λ and r′′ ∈{1, ..., q} \Λ, Model P2 has inﬁnitely many solutions satisfying P
+r∈Λ
+σr (b) = 1 and σr′′ (b) = 0
+for any r′′ ∈{1, ..., q} \Λ. In this case, we can set σr (b) = 1/|Λ| for any r ∈Λ, where |Λ| is the number of
+elements in Λ, which means that b can be assigned to any class Clr, r ∈Λ, with the same credibility degree
+σr (b) = 1/|Λ|.
+13
+
+===== PAGE 14 =====
+Proof. See e-Appendix A (supplementary material available on-line).
+□
+Proposition 1 indicates that the assignment of any non-reference alternative b ∈AT can be determined by
+examining each Γr (b), r = 1, ..., q, and the classes Clr with the least Γr (b) are the most credible assignments.
+Actually, Γr (b) is equal to the value of the objective of Model P2 when σr (b) = 1 and σr′ (b) = 0 for r′̸ = r.
+Proposition 2. For any non-reference alternatives b, b′ ∈AT , suppose that U (b) ⩾U (b′), and Model P2
+determines crisp assignments Clr and Clr′ for b and b′, respectively. Then, it must be that r ⩾r′, that is,
+the assignment of b is at least as good as the assignment of b′.
+Proof. See e-Appendix B (supplementary material available on-line).
+□
+Note that, for any non-reference alternatives b, b′ ∈AT , if Model P2 assigns them to multiple classes, we can
+also derive that the assignment of b is at least as good as the assignment of b′, which can be analyzed in an
+analogous way. Proposition 2 proves that the assignments of non-reference alternatives determined by Model P2
+are consistent with the sorting rule in the example-based sorting procedure.
+In real-world applications, the assignment of a non-reference alternative b ∈AT determined by Model P2
+is often unique because we rarely encounter a situation where more than one class Clr have the same Γr (b).
+However, for some problems, we may hope to obtain such results that each non-reference alternative b ∈AT
+is assigned to multiple classes with non-zero credibility degrees, rather than a crisp assignment. Therefore, we
+propose to use the softmax function to derive a credibility vector σ (b) = (σ1 (b) , ..., σq (b))T with each σr (b) > 0,
+r = 1, ..., q. The softmax function is often used to transform a vector of real numbers to a multinoulli probability
+distribution proportional to the exponentials of each input number, which has been widely used in multi-class
+logistic regression, linear discriminant analysis, artiﬁcial neural network (particularly, deep learning) [13, 25]
+and discrete choice model [32]. In our context, the credibility vector σ (b) = (σ1 (b) , ..., σq (b))T for the valued
+assignment of each non-reference alternative b ∈AT can be obtained using the softmax function as follows:
+σr (b) =
+exp (−Γr (b))
+qP
+s=1
+exp (−Γs (b))
+, r = 1, ..., q,
+where exp (·) is the exponential function with respect to the mathematical constant e = 2.71828.... The less
+Γr (b) is, the greater σr (b). Note that although −Γr (b) could be less than zero, σr (b) derived from the softmax
+function ensures σr (b) > 0, r = 1, ..., q, and
+qP
+r=1
+σr (b) = 1. Obviously, class Clr with the least Γr (b) has the
+greatest σr (b), which means b can be assigned to class Clr with the greatest credibility. Such an observation is
+consistent with the assignment determined by Model P2. In this way, we derive a “soft” valued assignment for
+each non-reference alternative in contrast to the “hard” assignment determined by Model P2.
+2.4. Adjusting classiﬁcation performance across classes according to class priorities
+In constructing a preference model from valued assignment examples introduced in Section 2.2, an important
+assumption is the equal priorities for all classes, such that the classiﬁcation performance for each class is addressed
+in a fair way. However, this is not always the case in many real-world applications, such as credit rating, medical
+diagnostics, etc., where we need to pay more attention to some particular classes. In this case, the DM may
+allocate priorities to respective classes and requires to obtain diﬀerent classiﬁcation performance according to
+the speciﬁed class priorities. In this section, we propose a method for adjusting classiﬁcation performance across
+classes based on the initial preference model constructed by the optimization Model P1. Such a method can be
+seen as a complementary component of the analytical framework and the DM can decide whether to launch it.
+At the beginning of this method, the DM is required to review the classiﬁcation performance of the initial
+preference model suggested by Model P1 on the reference set (i.e., the ﬁtting ability on valued decision examples).
+14
+
+===== PAGE 15 =====
+Speciﬁcally, for each reference alternative a ∈AR, we regard it as a ﬁctitious non-reference alternative, and use
+the method discussed in Section 2.3 to predict its valued assignment (denoted by σ′ (a) = (σ1′ (a) , ..., σq′ (a))T),
+and then compare the predicted valued assignment to its actual one σ (a) = (σ1 (a) , ..., σq (a))T.
+Then, ac-
+cording to σ (a) and σ′ (a), we can derive two ranking lists of classes for a, denoted by Clφ1(a), ..., Clφq(a) and
+Clφ1′(a), ..., Clφq′(a), respectively, such that σφi(a) > σφj(a) (or σφi′(a)′ > σφj ′(a)′), for i < j, where all classes rank
+in a descending order of credibility degrees. Then, for each class Clr, r = 1, ..., q, we can deﬁne the following
+cardinal and ordinal classiﬁcation performance measures, respectively, as follows:
+CardPfr =
+1
+|AR|
+X
+a∈AR
+σr (a) −σr (a)′,
+OrdPfr =
+1
+(q −1) |AR|
+X
+a∈AR
+|posφ (a, r) −posφ′ (a, r)|,
+where posφ (a, r) and posφ′ (a, r) represent the positions of class Clr in the ranking lists Clφ1(a), ..., Clφq(a) and
+Clφ1′(a), ..., Clφq′(a), respectively. CardPfr quantiﬁes the average diﬀerence between the credibility degrees of
+class Clr in the actual and predicted credibility distributions for all reference alternatives a ∈AR, while OrdPfr
+measures the average distance between the positions of class Clr in the actual and predicted ranking lists for
+all reference alternatives a ∈AR. Note that both CardPfr and OrdPfr are normalized within the interval [0, 1].
+Obviously, the less CardPfr and OrdPfr, the better performance is achieved on class Clr.
+The measures CardPfr and OrdPfr for each class Clr, r = 1, ..., q, are submitted to the DM, and (s)he can
+review such results and then decides whether to adjust the classiﬁcation performance. If the DM thinks the
+performance on some class Cls is relatively low, (s)he may require to improve the performance on this class.
+However, acquiring the precise values of the priorities for each class from the DM is a diﬃcult task. Instead, we
+can require the DM to specify a priority ranking of all q classes in the following form
+Clτ(1), Clτ(2), ..., Clτ(q),
+where τ (·) ∈{1, ..., q} is the permutation on the set of indices of classes according to the speciﬁed priorities,
+such that class Clτ(s) is prior to class Clτ(s+1), s = 1, ..., q −1, which means that once the performance of class
+Clτ(s+1) is improved, that of class Clτ(s) should also be improved. The DM wishes that the performance of each
+class improves according to this priority order.
+To implement ﬂexible adjustment of classiﬁcation performance across classes, our method pays more attention
+to classes with higher priorities and aims to improve the credible consistency between the reference alternatives
+that can be assigned to these classes with certain credibility degrees and other reference alternatives that are
+assigned to other classes. Speciﬁcally, the credible consistency for each class Cls, s = 1, ..., q, can be quantiﬁed
+as follows:
+Os =
+s−1
+X
+r=1
+X
+ai,aj∈AR
+σs (ai) σr (aj) (U (ai) −U (aj)) +
+q
+X
+r=s+1
+X
+ai,aj∈AR
+σs (ai) σr (aj) (U (aj) −U (ai)),
+where the left part concerns the value diﬀerence between the reference alternatives ai that can be assigned to
+class Cls with certain credibility degrees and other aj that are classiﬁed into a worse class, while the right part
+measures the value diﬀerence between these reference alternatives ai and those aj that come from a better class.
+According to the rule for the example-based sorting procedure, the greater Os is, the more likely it is to achieve
+an improved performance on class Cls. Therefore, we can consider to increase Os for classes Cls, s = 1, ..., q,
+according to the speciﬁed priority order.
+15
+
+===== PAGE 16 =====
+Deﬁnition 3. [26] Let θ be a parameter vector of the employed preference model. Regarding Os, s = 1, ..., q,
+a vector d̸ = 0 is said to be an ascent direction of Os at θ, if there exits a positive number δ such that
+Os (θ + λd) > Os (θ) for any scalar λ ∈(0, δ).
+Proposition 3. [26] Let θ be a parameter vector of the employed preference model. Regarding Os, s = 1, ..., q,
+if a vector d̸ = 0 satisﬁes ∇Os
+Td > 0 where ∇Os stands for the gradient of Os, there exists a positive
+number δ such that Os (θ + λd) > Os (θ) for any scalar λ ∈(0, δ), that is, d is an ascent direction of Os
+at θ.
+According to the above deﬁnition and proposition, increasing Os, s = 1, ..., q, can be done by ﬁnding an ascent
+direction d for Os. For this purpose, let us consider the following mixed-integer programming model:
+(P3) : Maximize
+q
+X
+s=1
+vs,
+s.t. (LC1) ∇Os|θ=ˆθ
+Td + Q (1 −vs) ⩾0, s = 1, ..., q,
+(LC2) vτ(s) ⩾vτ(s+1), s = 1, ..., q −1,
+(LC3) vs ∈{0, 1} , s = 1, ..., q,
+(LC4)
+[d]j
+ ⩽1, j = 1, ..., dim (d) ,
+EM
+BASE,
+where ˆθ represents the current value of the parameter vector θ, Q is an auxiliary constant equal to a suﬃciently
+large positive value such that Q ⩾
+∇Os|θ=ˆθ
+
+1, vs for s = 1, ..., q are binary variables, [d]j is the j-th entry of
+d, dim (d) represents the dimension of d, and M ∈{LINEAR, PIECEWISE - LINEAR, SPLINE, GENERAL}
+so that the above model applies to diﬀerent types of value functions. If vs = 1, constraint (LC1) amounts to
+∇Os|θ=ˆθ
+Td ⩾0, which requires to ﬁnd a direction d along which Os increases. Constraint (LC2) ensures that
+Os for all classes Cls, s = 1, ..., q, increase according to the speciﬁed priority order, such that once Os+1 for class
+Cls+1 with a lower priority increases, Os for class Cls with a higher priority should also increase. Constraint
+(LC4) guarantees to derive a bounded d. Model P3 aims to maximize the number of classes whose Os can be
+increased according to the speciﬁed priority order. Let d∗and v∗
+s be the values of d and vs at the optimum,
+respectively, which indicate that Os for classes Cls with v∗
+s = 1 increase along the direction d∗to improve the
+credible consistency for these classes. Then, we can adjust the current preference model by solving the following
+linear programming model:
+(P4) : Maximize
+X
+s=1,...,q: v∗s =1
+Os|θ=ˆθ+λd,
+s.t. λ ⩾0,
+EM
+BASE|θ=ˆθ+λd,
+where the variable λ represents a step. Model P4 aims to maximize Os for classes Cls such that v∗
+s = 1 by
+adjusting ˆθ along the ascent direction d∗, so that the credible consistency for these classes is improved. Once
+the value of λ at the optimum (denoted by λ∗) is achieved, we can derive a new value of the parameter vector θ
+according to the following formula
+ˆθ′ = ˆθ + λ∗d∗,
+where ˆθ′ stands for the adjusted value of the parameter vector θ.
+The procedure for adjusting Os according to the speciﬁed priority order is an iterative process, which can
+be organized as Algorithm 1. Threshold ζ is a positive value used to control the complexity of the adjusted
+preference model U ′, and a stopping criterion of Algorithm 1 consists in that the complexity measure Ω(U ′)
+16
+
+===== PAGE 17 =====
+exceeds threshold (1 + ζ) Ω(U). Without threshold ζ, we may obtain an adjusted preference model that over-ﬁts
+the decision examples and has poor generalization performance on new alternatives. Note that ζ can be speciﬁed
+in advance (e.g., 10%, 20%, etc.), or adjusted during the process by checking the classiﬁcation performance on
+a subset of reference alternatives for validation (i.e., cross-validation).
+Algorithm 1 Method for adjusting classiﬁcation performance across classes according to speciﬁed priority order.
+Input:
+Solution ˆθ output by Model P1, complexity measure Ω(U) of preference model U corresponding to ˆθ, priority
+ranking of classes Clτ(1), Clτ(2), ..., Clτ(q), threshold ζ.
+1: Solve Model P3 to derive ascent direction d∗and identify classes Cls such that v∗
+s = 1.
+2: if d = 0 then
+3:
+Terminate.
+4: end if
+5: Solve Model P4 to obtain step λ∗.
+6: if λ∗= 0 then
+7:
+Terminate.
+8: else
+9:
+ˆθ′ ←ˆθ + λ∗d∗.
+10:
+Derive new preference model U ′ according to ˆθ′ and then measure its complexity Ω(U ′).
+11:
+if Ω(U ′) > (1 + ζ) Ω(U) then
+12:
+Terminate.
+13:
+else
+14:
+ˆθ ←ˆθ′, U ←U ′.
+15:
+Go to step 1.
+16:
+end if
+17: end if
+Output:
+Adjusted solution ˆθ and corresponding adjusted preference model U.
+3. Experimental analysis
+In this section, we validate the practical performance of the proposed framework on a real-word dataset, which
+is collected from the QS World University Ranking1. This dataset provides an overall ranking of 500 universities
+from all over the world according to six evaluation criteria, including (g1) citation per faculty, (g2) international
+students, (g3) international faculty, (g4) faculty student, (g5) employer reputation, and (g6) academic reputation.
+The ranking of 500 universities is derived by aggregating the performances of each university on all criteria using
+the criteria weights w1 = 0.4, w2 = 0.1, w3 = 0.2, w4 = 0.05, w5 = 0.05 and w6 = 0.2, where wj is the weight of
+criterion gj, j = 1, ..., 6. All criteria are of gain-type. A descriptive summary of the dataset is provided in Table 1
+and the distribution of performance values on each criterion is depicted in Figure 1. One can observe that the
+distribution of performance values on most criteria is not uniform: the distribution of performance levels on g1
+and g2 is skewed to the left, whereas a signiﬁcant proportion of performance values are located in the interval
+[95.0, 100.0] on g3, g4 and g5. This observation incurs a careful setting for the experimental analysis, which will
+be discussed later.
+As our framework can be equipped with linear, piecewise-linear, splined, or general monotone marginal value
+functions, we implement the four variants in the experimental study. Furthermore, the UTADIS method as well as
+its three variants (UTADIS I, II, & III) [10] and the method proposed by [23] are investigated to compare with the
+four variants of the proposed framework. Both the UTADIS family and the method proposed by [23] employ an
+1https://www.topuniversities.com/university-rankings/world-university-rankings/2020
+17
+
+===== PAGE 18 =====
+Table 1: Descriptive summary of QS World University Ranking dataset.
+Criterion
+Min. Performance
+Max. Performance
+Avg. Performance
+g1
+3.0
+100.0
+39.7
+g2
+2.5
+100.0
+40.1
+g3
+4.0
+100.0
+51.9
+g4
+0.0
+100.0
+53.4
+g5
+0.0
+100.0
+47.2
+g6
+1.0
+100.0
+44.2
+
+
+
+
+
+
+
+
+
+
+
+
+	
+	  g1
+
+
+
+
+
+
+
+
+
+
+
+	
+	  g2
+
+
+
+
+
+
+
+
+
+
+
+	
+	  g3
+
+
+
+
+
+
+
+
+
+
+
+	
+	  g4
+
+
+
+
+
+
+
+
+
+
+
+
+	
+	  g5
+
+
+
+
+
+
+
+
+
+
+
+	
+	  g6
+Figure 1: Distribution of performance on each criterion.
+18
+
+===== PAGE 19 =====
+additive value function model composed of piecewise-linear marginal value functions as the preference model. The
+UTADIS method constructs a preference model by minimizing the sum of misclassiﬁcation errors for all reference
+alternatives, and then other or near optimal solutions are explored and averaged to derive a ﬁnal preference model
+in the post optimality analysis stage. In addition to the classiﬁcation error, UTADIS I maximizes the distances of
+the correctly classiﬁed alternatives from the class thresholds, so that a sharp discrimination is achieved. UTADIS
+II uses a mixed-integer programming model to minimize the number of misclassiﬁed alternatives, rather than their
+magnitude. UTADIS III combines UTADIS I and II. The model proposed by [23] is based on the regularization
+framework and aims to construct a preference model composed of marginal value functions that are as “smooth”
+as possible while minimizing the sum of inconsistency levels for pairs of reference alternatives coming from distinct
+classes.
+In the experimental setting, for the methods that require dividing performance scales into a number of
+equal-length sub-intervals (including the piecewise-linear and splined variants of the proposed framework, the
+UTADIS method and its three variants, and the method proposed by [23]), the number of sub-intervals is
+perceived as a hyper-parameter, which is determined using cross-validation by examining the following values γj ∈
+{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}. In making trade-oﬀbetween the preference model’s ﬁtting ability and its complexity
+control, we also use the cross-validation method to determine the hyper-parameters C, C1 and C2 from the
+following candidates {10−8, 5 × 10−8, 10−7, 5 × 10−7,..., 107, 5 × 107, 108, 5 × 108}. To construct a sorting
+problem, we assign all universities to ﬁve preference-ordered classes CL = {Cl1, Cl2, Cl3, Cl4, Cl5} according to
+their overall ranking: Cl5, Cl4, Cl3, Cl2 and Cl1 consist of universities that are ranked in the intervals [1, 100],
+[101, 200], [201, 300], [301, 400], and [401, 500], respectively. In evaluating the performance of the proposed
+framework, the original dataset is randomly split into two parts, 70% (referred to as AR) for constructing the
+preference model and 30% (referred to as AT ) for testing the predictive accuracy of the constructed model.
+Note that the distribution of universities from respective classes in the training and test sets are ensured to be
+(approximately) the same with that in the original dataset. This procedure is repeated 100 times, and the results
+are ﬁnally averaged. Note that, in each run, we use diﬀerent sorting methods to construct a preference model and
+then test its performance on the same AR and AT , so that the ﬁnal averaged results on 100 runs can be used to
+compare diﬀerent methods. All considered methods are implemented using Python and the involved optimization
+models are solved with the CVXPY optimization package2.
+To evaluate the performance of a sorting method, we can consider the following measures including Top-N
+accuracies and Kendall’s tau coeﬃcient.
+Speciﬁcally, for each non-reference alternative b ∈AT , let σ (b) =
+(σ1 (b) , ..., σq (b))T and σ′ (b) = (σ1′ (b) , ..., σq′ (b))T denote its actual and predicted credibility degrees for val-
+ued assignment.
+According to σ (b) and σ′ (b), we can derive two ranking lists of classes for b, denoted by
+Clφ1(b), ..., Clφq(b) and Clφ1′(b), ..., Clφq′(b), respectively, such that σφi(b) > σφj(b) (or σφi′(b)′ > σφj ′(b)′), for i < j.
+Then, for any N = 1, ..., q, let ΘN (b) and Θ′N (b) denote the top N classes with the greatest credibility degrees
+according to the above two ranking lists, respectively. Moreover, let nc and nd represent the numbers of con-
+cordant and discordant pairs of classes in the above two ranking lists, respectively. Then, with the use of this
+notation, Top-N accuracies and Kendall’s tau for b are calculated as follows:
+Accuracy@N (b) =
+ΘN (b) ∩Θ′N (b)
+
+N
+,
+Kendall’s tau (b) = 2 (nc −nd)
+q (q −1) .
+Accuracy@N (b) reﬂects, in the top N recommendations for alternative b, how many classes actually have the
+2https://www.cvxpy.org/
+19
+
+===== PAGE 20 =====
+greatest N credibility degrees, and Kendall’s tau (b) refers to the diﬀerence between the proportions of concordant
+and discordant pairs of classes in the above two ranking lists.
+Obviously, the greater Accuracy@N (b) and
+Kendall’s tau (b), the better the classiﬁcation performance is achieved on alternative b. Note that N could be
+speciﬁed by the DM, since it concerns the most credible N assignments for each alternative. Particularly, when
+N = 1, we care about the most credible one for each alternative. Finally, we can average the above measures for
+all non-reference alternatives b ∈AT and obtain comprehensive performance evaluation for a sorting method.
+3.1. Experiments with crisp assignment examples
+We ﬁrst report the outcomes of applying all above sorting methods to the original crisp decision examples. Since
+each reference alternative is assigned to only one class precisely, we only measure the classiﬁcation accuracy (i.e.,
+Accuracy@1) for each sorting method to reﬂect how many alternatives are correctly classiﬁed by each method.
+Besides, we also report the trade-oﬀweight of marginal value function on each criterion in terms of mean and
+standard deviation to measure the ability of each method in constructing a preference model that is close to the
+actual one. The experimental results are summarized in Table 2 and the distribution of classiﬁcation of each
+method is depicted in Figure 2. It is apparent that the four variants of the proposed framework and the method
+proposed by [23] achieve higher classiﬁcation accuracies than the UTADIS family. Although UTADIS I, II, and
+III improve the original UTADIS method in some aspects, the performance of the three variants is unstable and
+the classiﬁcation accuracies could be rather low for some sets of decision examples. Both the four variants of the
+proposed framework and the method proposed by [23] incorporate the advance of regularization techniques and
+tend to deriving as linear marginal value functions as possible, which are close to the actual preference model
+(i.e., linear value functions). When referring to the trade-oﬀweight of marginal value function on each criterion,
+we observe that the averaged results from all sorting methods are close to the actual ones, but the outcomes
+from the four variants of the proposed framework and the method proposed by [23] are more stable than those
+suggested by the UTADIS family. Furthermore, the diﬀerence among the performance from the four variants of
+the proposed framework and the method proposed by [23] is marginal, since the actual preference model is simple
+and the decision examples over the experimental runs are consistent.
+Table 2: Classiﬁcation performance and trade-oﬀweight of marginal value function derived from respective method in terms of mean
+and standard deviation for crisp decision examples.
+Method
+Accuracy
+Trade-off weight of marginal value function
+g1
+g2
+g3
+g4
+g5
+g6
+UTADIS original
+0.8206 ± 0.0570
+0.3998 ± 0.0689
+0.1030 ± 0.0245
+0.2045 ± 0.0476
+0.0508 ± 0.0138
+0.0514 ± 0.0130
+0.1932 ± 0.0416
+UTADIS I
+0.8370 ± 0.0457
+0.4013 ± 0.0558
+0.0993 ± 0.0197
+0.2014 ± 0.0380
+0.0497 ± 0.0107
+0.0497 ± 0.0107
+0.1984 ± 0.0386
+UTADIS II
+0.8519 ± 0.0393
+0.3842 ± 0.0408
+0.1011 ± 0.0186
+0.2052 ± 0.0339
+0.0507 ± 0.0095
+0.0508 ± 0.0091
+0.2077 ± 0.0282
+UTADIS III
+0.8736 ± 0.0298
+0.3930 ± 0.0327
+0.1020 ± 0.0135
+0.2012 ± 0.0265
+0.0505 ± 0.0080
+0.0491 ± 0.0076
+0.2039 ± 0.0234
+Method by [23]
+0.9267 ± 0.0057
+0.4005 ± 0.0080
+0.0999 ± 0.0030
+0.1996 ± 0.0053
+0.0498 ± 0.0016
+0.0498 ± 0.0014
+0.2001 ± 0.0054
+Linear variant
+0.9258 ± 0.0057
+0.4013 ± 0.0081
+0.1000 ± 0.0028
+0.1989 ± 0.0060
+0.0499 ± 0.0015
+0.0499 ± 0.0016
+0.1997 ± 0.0051
+Piecewise-linear variant
+0.9264 ± 0.0062
+0.4005 ± 0.0073
+0.0997 ± 0.0029
+0.2009 ± 0.0048
+0.0498 ± 0.0016
+0.0497 ± 0.0015
+0.1991 ± 0.0053
+Splined variant
+0.9269 ± 0.0058
+0.4009 ± 0.0080
+0.1001 ± 0.0028
+0.1996 ± 0.0050
+0.0498 ± 0.0013
+0.0499 ± 0.0017
+0.1994 ± 0.0056
+General monotone variant
+0.9263 ± 0.0054
+0.3994 ± 0.0074
+0.1004 ± 0.0029
+0.1997 ± 0.0053
+0.0502 ± 0.0015
+0.0500 ± 0.0015
+0.2001 ± 0.0053
+For illustrative purpose, let us present the examples of the preference models constructed by the four variants
+of the proposed framework. Figure 3 illustrates the four types of marginal value functions of the constructed
+preference models corresponding to the greatest predictive accuracy. The derived linear marginal value functions
+are completely linearly increasing with respect to the performance values. As for the marginal value functions
+derived from the piecewise-linear, splined, and general monotone variants, they look almost linear since the
+regularization term is in favor of functions that are as linear as possible.
+As expected, the piecewise-linear
+functions have a sudden change in slope at breakpoints, although it is very slight in the presented example,
+whereas the splined functions are completely smooth over the whole performance scales.
+When it comes to
+general monotone marginal value functions, they exhibit slight “zig-zag” behavior, since we allow each distinct
+performance value observed over the performance scales to be breakpoints and the constructed marginal value
+functions are diﬃcult to be completely smooth.
+20
+
+===== PAGE 21 =====
+UTADIS orginal
+UTADIS I
+UTADIS II
+UTADIS III
+Method by Liu et al. (2019) Linear variant
+Piecewise-linear variant
+Splined variant General monotone variant
+0.60
+0.65
+0.70
+0.75
+0.80
+0.85
+0.90
+0.95
+Accuracy
+Figure 2: Distribution of classiﬁcation accuracy of each method for crisp decision examples.
+
+
+
+
+	
+
+ 
+
+
+
+
+
+
+
+
+
+
+ 
+
+ g1
+
+ g2
+
+ g3
+
+ g4
+
+ g5
+
+ g6
+(a) Linear marginal value function
+
+
+
+
+	
+
+ 
+
+
+
+
+
+
+
+
+
+
+ 
+
+ g1
+
+ g2
+
+ g3
+
+ g4
+
+ g5
+
+ g6
+(b) Piecewise-linear marginal value function
+
+
+
+
+	
+
+ 
+
+
+
+
+
+
+
+
+
+
+ 
+
+ g1
+
+ g2
+
+ g3
+
+ g4
+
+ g5
+
+ g6
+(c) Splined marginal value function
+
+
+
+
+	
+
+ 
+
+
+
+
+
+
+
+
+
+
+ 
+
+ g1
+
+ g2
+
+ g3
+
+ g4
+
+ g5
+
+ g6
+(d) General monotone marginal value function
+Figure 3: An example of marginal value functions derived from four variants of proposed framework. (For interpretation of the
+references to color in this ﬁgure, the reader is referred to the web version of this article.)
+21
+
+===== PAGE 22 =====
+3.2. Experiments with valued assignment examples
+Let us now test the classiﬁcation performance of the four variants of the proposed framework on valued decision
+examples. Note that the family of UTADIS and the method proposed by [23] cannot address this sorting task,
+since they only apply to crisp decision examples. To construct valued decision examples, we modify the original
+dataset in the following way: for any alternative, a majority proportion (including 90%, 80%, 70%, and 60%) of
+credibility degree is assigned to its actual assignment, and the remaining (including 10%, 20%, 30%, and 40%)
+is allocated to the two classes adjacent to its actual assignment. For example, when the majority proportion
+of credibility degree that is assigned to the actual assignment is 90%, for an alternative a, of which the actual
+assignment is Cl3, the constructed distribution of credibility degrees will be σ (a) = (0, 0.05, 0.9, 0.05, 0)T.
+Particularly, for an alternative a′ that is actually assigned to Cl1 or Cl5, the constructed σ (a′) will be set as
+σ (a′) = (0.9, 0.1, 0, 0, 0)T or σ (a′) = (0, 0, 0, 0.1, 0.9)T. Then, we examine the classiﬁcation performance of
+diﬀerent sorting methods in terms of Accuracy@1, Accuracy@2, Accuracy@3, and Kendall’s tau for 100 runs on
+randomly constructed AR and AT .
+The results are summarized in Table 3 and depicted in Figures 4 – 7. We observe that the Accuracy@1
+measures of the four variants of the proposed framework decrease with the majority proportion of credibility
+degree that is assigned to the actual assignment. For example, the mean of Accuracy@1 of the linear variant
+decreases from 0.9258 for the crisp decision examples (see Table 2) to 0.8101 for the “60%-40%” valued decision
+examples. This is due to that, for a pair of reference alternatives a and a′, where the actual assignments of
+a and a′ are Cls+1 and Cls, s = 1, ..., 4, in the case of crisp decision examples, it is very credible to maximize
+U (a)−U (a′) since D≻(a, a′) = 1; when the majority proportion of credibility degree that is assigned to the actual
+assignment decreases, D≻(a, a′) decreases while D≺(a, a′) and D= (a, a′) increase, and in turn the credibility to
+maximize U (a)−U (a′) decrease, which contradicts the actual preference relation between a and a′. Moreover, it
+is interesting to observe that the Accuracy@2 measures of the four variants increase as the majority proportion of
+credibility degree that is assigned to the actual assignment decreases. Such an observation reﬂects that, although
+the decision examples are incredible when the majority proportion of credibility degree that is assigned to the
+actual assignment decreases, the four variants can work out top two recommendations that are credible enough
+for making correct prediction. In addition, the Accuracy@3 and Kendall’s tau indicators decrease with the decline
+of the majority proportion of credibility degree that is assigned to the actual assignment. On the other hand, in
+the comparison of the four variants, the linear variant slightly outperforms others in terms of the Top-N accuracy
+and Kendall’s tau, since the actual value function model is linear, which makes the linear variant achieve better
+performance than the others.
+Table 3: Top-N accuracy and Kendall’s tau in terms of mean and standard deviation of four variants of proposed framework for
+valued decision examples.
+Method
+Credibility distribution
+Accuracy@1
+Accuracy@2
+Accuracy@3
+Kendall’s tau
+Linear variant
+90%-10%
+0.9058±0.0052
+0.9172±0.0015
+0.8778±0.0010
+0.7333±0.0016
+80%-20%
+0.8805±0.0051
+0.9300±0.0014
+0.8745±0.0017
+0.7313±0.0018
+70%-30%
+0.8452±0.0043
+0.9374±0.0016
+0.8702±0.0015
+0.7247±0.0013
+60%-40%
+0.8101±0.0047
+0.9452±0.0013
+0.8669±0.0006
+0.7188±0.0014
+Piecewise-linear variant
+90%-10%
+0.9016±0.0071
+0.9186±0.0021
+0.8780±0.0015
+0.7330±0.0021
+80%-20%
+0.8769±0.0079
+0.9293±0.0018
+0.8746±0.0026
+0.7303±0.0030
+70%-30%
+0.8413±0.0074
+0.9374±0.0022
+0.8700±0.0019
+0.7238±0.0024
+60%-40%
+0.8027±0.0064
+0.9455±0.0022
+0.8669±0.0011
+0.7173±0.0018
+Splined variant
+90%-10%
+0.9010±0.0079
+0.9183±0.0021
+0.8782±0.0017
+0.7329±0.0026
+80%-20%
+0.8772±0.0075
+0.9293±0.0020
+0.8750±0.0025
+0.7307±0.0028
+70%-30%
+0.8422±0.0066
+0.9371±0.0022
+0.8705±0.0020
+0.7241±0.0023
+60%-40%
+0.8024±0.0064
+0.9454±0.0020
+0.8666±0.0014
+0.7170±0.0019
+General monotone variant
+90%-10%
+0.9000±0.0088
+0.9186±0.0026
+0.8782±0.0018
+0.7327±0.0028
+80%-20%
+0.8741±0.0102
+0.9293±0.0020
+0.8747±0.0031
+0.7297±0.0040
+70%-30%
+0.8398±0.0076
+0.9373±0.0024
+0.8698±0.0020
+0.7233±0.0026
+60%-40%
+0.8004±0.0069
+0.9452±0.0025
+0.8667±0.0018
+0.7166±0.0024
+22
+
+===== PAGE 23 =====
+90:10
+80:20
+70:30
+60:40
+0.80
+0.82
+0.84
+0.86
+0.88
+0.90
+0.92
+Accuracy@1
+(a) Accuracy@1
+90:10
+80:20
+70:30
+60:40
+0.915
+0.920
+0.925
+0.930
+0.935
+0.940
+0.945
+0.950
+Accuracy@2
+(b) Accuracy@2
+90:10
+80:20
+70:30
+60:40
+0.866
+0.868
+0.870
+0.872
+0.874
+0.876
+0.878
+0.880
+Accuracy@3
+(c) Accuracy@3
+90:10
+80:20
+70:30
+60:40
+0.715
+0.720
+0.725
+0.730
+0.735
+Kendall's tau
+(d) Kendall’s tau
+Figure 4: Distribution of Top-N accuracy and Kendall’s tau of linear variant of proposed framework for valued decision examples.
+90:10
+80:20
+70:30
+60:40
+0.78
+0.80
+0.82
+0.84
+0.86
+0.88
+0.90
+0.92
+Accuracy@1
+(a) Accuracy@1
+90:10
+80:20
+70:30
+60:40
+0.915
+0.920
+0.925
+0.930
+0.935
+0.940
+0.945
+0.950
+Accuracy@2
+(b) Accuracy@2
+90:10
+80:20
+70:30
+60:40
+0.8625
+0.8650
+0.8675
+0.8700
+0.8725
+0.8750
+0.8775
+0.8800
+0.8825
+Accuracy@3
+(c) Accuracy@3
+90:10
+80:20
+70:30
+60:40
+0.710
+0.715
+0.720
+0.725
+0.730
+0.735
+0.740
+Kendall's tau
+(d) Kendall’s tau
+Figure 5: Distribution of Top-N accuracy and Kendall’s tau of piecewise-linear variant of proposed framework for valued decision
+examples.
+23
+
+===== PAGE 24 =====
+90:10
+80:20
+70:30
+60:40
+0.78
+0.80
+0.82
+0.84
+0.86
+0.88
+0.90
+0.92
+Accuracy@1
+(a) Accuracy@1
+90:10
+80:20
+70:30
+60:40
+0.915
+0.920
+0.925
+0.930
+0.935
+0.940
+0.945
+0.950
+Accuracy@2
+(b) Accuracy@2
+90:10
+80:20
+70:30
+60:40
+0.8625
+0.8650
+0.8675
+0.8700
+0.8725
+0.8750
+0.8775
+0.8800
+0.8825
+Accuracy@3
+(c) Accuracy@3
+90:10
+80:20
+70:30
+60:40
+0.710
+0.715
+0.720
+0.725
+0.730
+0.735
+0.740
+Kendall's tau
+(d) Kendall’s tau
+Figure 6: Distribution of Top-N accuracy and Kendall’s tau of splined variant of proposed framework for valued decision examples.
+90:10
+80:20
+70:30
+60:40
+0.78
+0.80
+0.82
+0.84
+0.86
+0.88
+0.90
+0.92
+Accuracy@1
+(a) Accuracy@1
+90:10
+80:20
+70:30
+60:40
+0.910
+0.915
+0.920
+0.925
+0.930
+0.935
+0.940
+0.945
+0.950
+Accuracy@2
+(b) Accuracy@2
+90:10
+80:20
+70:30
+60:40
+0.865
+0.870
+0.875
+0.880
+Accuracy@3
+(c) Accuracy@3
+90:10
+80:20
+70:30
+60:40
+0.710
+0.715
+0.720
+0.725
+0.730
+0.735
+0.740
+Kendall's tau
+(d) Kendall’s tau
+Figure 7: Distribution of Top-N accuracy and Kendall’s tau of general monotone variant of proposed framework for valued decision
+examples.
+24
+
+===== PAGE 25 =====
+3.3. Simulating decision policies with non-linear value functions
+In the above experimental analysis, the actual preference model underlying the given decision examples is com-
+posed of linear marginal value functions. To test our methods on decision examples which are generated by other
+types of value functions, we conduct an additional experiment on simulating actual value functions to generate
+decision examples, on which the four variants of the proposed framework are applied to derive respective results
+for comparison. In this part, we assume actual value functions are in the general monotone form, that is, we make
+no assumptions about properties of actual value functions except monotonicity. The least assumption imposed on
+actual value functions makes the conclusion derived from the experimental outcomes would be general. A widely
+used method for generating general monotone value functions is to assign marginal values to distinct performance
+values by sorting random values drawn from a uniform distribution [21]. In a recent study by [8], this method for
+generating general monotone value functions is found to bias the obtained value functions towards a certain shape,
+especially when the distribution of performance values is not uniform. Recall that we observe the imbalanced
+distribution of performance values in Figure 1. Hence, to avoid distorted conclusions, we use another method
+for generating general monotone value functions: (a) ﬁrst, for each criterion, assign zero and a positive random
+value to the worst two performance values x0
+j, x1
+j, respectively, as the corresponding marginal values uj(x0
+j) and
+uj(x1
+j); (b) then, for the remaining performance values x2
+j, ..., xmj
+j
+, sequentially assign a random value ς satisfying
+the following equation to xk
+j , k = 2, ..., mj, as the corresponding marginal value uj
+ xk
+j
+
+:
+ς −uj
+ xk−1
+j
+
+xk
+j −xk−1
+j
+= (1 + δ)
+uj
+ xk−1
+j
+
+−uj
+ xk−2
+j
+
+xk−1
+j
+−xk−2
+j
+,
+where δ is a random value drawn uniformly from the interval [−ρ, ρ], and ρ > 0 is a speciﬁed parameter used to
+control the complexity of the general monotone value function. Actually, [1 −ρ, 1 + ρ] delimits the variation range
+of growth rates of marginal values over consecutive sub-intervals. In this study, we consider the levels 25%, 50%,
+75%, and 100% for ρ, and obviously a greater ρ allows a wide variation range of growth rates of marginal values
+over consecutive sub-intervals, which is more likely to generate complex marginal value functions. (c) normalize
+the marginal values on all criteria. For each level of ρ, we randomly generate 100 general monotone value functions
+and the corresponding assignment for each alternative. We transform the crisp assignment for each alternative
+to the valued one by allocating 20% credibility degree to the classes adjacent to its actual assignment. Then,
+each generated dataset is randomly split into the training set AR and the test set AT , and the four variants of
+the proposed framework are applied to construct a preference model from AR and then tested on AT .
+The results of generating random value functions for testing the performance of the four variants of the
+proposed framework are presented in Table 4 and Figures 8–11. For all variants of the proposed framework, when
+increasing the complexity of the underlying value function model by selecting a greater ρ, the performance of
+the sorting methods decreases on all evaluation metrics, which is reﬂected in the decline of mean and the rise of
+standard deviation. This observation is easy to understand, because a more complex actual value function model
+makes it diﬃcult for the sorting methods to ﬁt the valued decision examples well. When it comes to the comparison
+among the four variants of the proposed framework, we observe that the linear variant is signiﬁcantly outperformed
+by the others, because its ability to ﬁt non-linear marginal value functions is rather weak. Moreover, it is noted
+that the piecewise-linear and splined variants slightly outperform the general monotone variant.
+A possible
+reason for this observation can be that the ﬁtting ability of piecewise-linear and splined marginal value functions
+is suﬃcient to construct a preference model that is close to the actual one, while the general monotone variant is
+too ﬂexible and the decision examples are insuﬃcient to help it infer a “close” value function since the number is
+reference alternatives is 350. An example of a randomly generated actual value function and the marginal value
+functions derived from the four variants of the proposed framework is illustrated in Figure 12, where we can
+compare the actual value function and the constructed ones directly. It is apparent that the constructed linear
+25
+
+===== PAGE 26 =====
+marginal value functions have great divergence to the actual ones, while the piecewise-linear, splined, and general
+monotone marginal value functions are similar to the actual ones. Particularly, the piecewise-linear functions
+have a signiﬁcant change in slope at breakpoints in this example, while the splined marginal value functions are
+completely smooth over the whole performance scales. In this perspective, the splined marginal value functions
+have the advantage of interpretability and descriptive character.
+Table 4: Top-N accuracy and Kendall’s tau in terms of mean and standard deviation of four variants of proposed framework for
+valued decision examples generated by random value functions.
+Method
+ρ
+Accuracy@1
+Accuracy@2
+Accuracy@3
+Kendall’s tau
+Linear variant
+25%
+0.6474±0.0061
+0.6977±0.0014
+0.6446±0.0027
+0.4998±0.0026
+50%
+0.6224±0.0169
+0.6982±0.0029
+0.6440±0.0024
+0.4944±0.0050
+75%
+0.6093±0.0178
+0.6923±0.0050
+0.6454±0.0046
+0.4896±0.0046
+100%
+0.5970±0.0188
+0.6891±0.0065
+0.6471±0.0067
+0.4865±0.0068
+Piecewise-linear variant
+25%
+0.8811±0.0056
+0.9300±0.0016
+0.8749±0.0019
+0.7318±0.0020
+50%
+0.8791±0.0064
+0.9300±0.0017
+0.8745±0.0021
+0.7311±0.0023
+75%
+0.8782±0.0061
+0.9293±0.0018
+0.8749±0.0020
+0.7309±0.0023
+100%
+0.8764±0.0073
+0.9293±0.0021
+0.8746±0.0025
+0.7302±0.0029
+Splined variant
+25%
+0.8801±0.0058
+0.9301±0.0017
+0.8744±0.0018
+0.7312±0.0019
+50%
+0.8796±0.0064
+0.9297±0.0017
+0.8748±0.0019
+0.7313±0.0022
+75%
+0.8784±0.0063
+0.9294±0.0017
+0.8747±0.0021
+0.7308±0.0024
+100%
+0.8770±0.0067
+0.9291±0.0020
+0.8748±0.0021
+0.7304±0.0026
+General monotone variant
+25%
+0.8792±0.0055
+0.9296±0.0017
+0.8747±0.0019
+0.7311±0.0021
+50%
+0.8776±0.0068
+0.9290±0.0021
+0.8749±0.0024
+0.7305±0.0025
+75%
+0.8765±0.0082
+0.9288±0.0018
+0.8747±0.0023
+0.7301±0.0029
+100%
+0.8749±0.0087
+0.9288±0.0026
+0.8744±0.0030
+0.7295±0.0033
+25%
+50%
+75%
+100%
+0.58
+0.60
+0.62
+0.64
+0.66
+Accuracy@1
+(a) Accuracy@1
+25%
+50%
+75%
+100%
+0.680
+0.685
+0.690
+0.695
+0.700
+0.705
+Accuracy@2
+(b) Accuracy@2
+25%
+50%
+75%
+100%
+0.635
+0.640
+0.645
+0.650
+0.655
+Accuracy@3
+(c) Accuracy@3
+25%
+50%
+75%
+100%
+0.475
+0.480
+0.485
+0.490
+0.495
+0.500
+Kendall's tau
+(d) Kendall’s tau
+Figure 8: Distribution of Top-N accuracy and Kendall’s tau of linear variant of proposed framework for valued decision examples
+generated by random value functions.
+26
+
+===== PAGE 27 =====
+25%
+50%
+75%
+100%
+0.860
+0.865
+0.870
+0.875
+0.880
+0.885
+0.890
+0.895
+Accuracy@1
+(a) Accuracy@1
+25%
+50%
+75%
+100%
+0.924
+0.926
+0.928
+0.930
+0.932
+0.934
+0.936
+Accuracy@2
+(b) Accuracy@2
+25%
+50%
+75%
+100%
+0.870
+0.872
+0.874
+0.876
+0.878
+0.880
+Accuracy@3
+(c) Accuracy@3
+25%
+50%
+75%
+100%
+0.724
+0.726
+0.728
+0.730
+0.732
+0.734
+0.736
+0.738
+Kendall's tau
+(d) Kendall’s tau
+Figure 9: Distribution of Top-N accuracy and Kendall’s tau of piecewise-linear variant of proposed framework for valued decision
+examples generated by random value functions.
+25%
+50%
+75%
+100%
+0.860
+0.865
+0.870
+0.875
+0.880
+0.885
+0.890
+0.895
+Accuracy@1
+(a) Accuracy@1
+25%
+50%
+75%
+100%
+0.924
+0.926
+0.928
+0.930
+0.932
+0.934
+Accuracy@2
+(b) Accuracy@2
+25%
+50%
+75%
+100%
+0.870
+0.872
+0.874
+0.876
+0.878
+0.880
+Accuracy@3
+(c) Accuracy@3
+25%
+50%
+75%
+100%
+0.724
+0.726
+0.728
+0.730
+0.732
+0.734
+0.736
+Kendall's tau
+(d) Kendall’s tau
+Figure 10: Distribution of Top-N accuracy and Kendall’s tau of splined variant of proposed framework for valued decision examples
+generated by random value functions.
+27
+
+===== PAGE 28 =====
+25%
+50%
+75%
+100%
+0.86
+0.87
+0.88
+0.89
+0.90
+Accuracy@1
+(a) Accuracy@1
+25%
+50%
+75%
+100%
+0.922
+0.924
+0.926
+0.928
+0.930
+0.932
+0.934
+Accuracy@2
+(b) Accuracy@2
+25%
+50%
+75%
+100%
+0.866
+0.868
+0.870
+0.872
+0.874
+0.876
+0.878
+0.880
+0.882
+Accuracy@3
+(c) Accuracy@3
+25%
+50%
+75%
+100%
+0.722
+0.724
+0.726
+0.728
+0.730
+0.732
+0.734
+0.736
+0.738
+Kendall's tau
+(d) Kendall’s tau
+Figure 11: Distribution of Top-N accuracy and Kendall’s tau of general monotone variant of proposed framework for valued decision
+examples generated by random value functions.
+3.4. Accounting for class priorities
+To illustrate the method for adjusting classiﬁcation performance across classes according to class priorities, we
+give an example which is summarized in Table 5 and Figure 13. In this example, the actual preference model is
+a randomly generated general monotone value function with the setting ρ = 25%. Then, we use this preference
+model to determine the actual assignment for each alternative and construct the training set AR and the test
+set AT . Particularly, we construct valued decision examples by allocating 20% credibility degree of each reference
+alternative to the classes adjacent to its actual assignment. Then, we use the splined variant of the proposed
+framework to derive the initial value function model, according to which the initial performance measures CardPfr
+and OrdPfr for each class on the reference and non-reference alternatives are obtained (see columns “Initial” in
+Table 5). In the following procedure for adjusting classiﬁcation performance across classes, we consider the priority
+ranking of classes as Cl5, Cl4, Cl3, Cl2, Cl1, where the classes Cl5 and Cl1 have the greatest and least priorities,
+respectively. According to the speciﬁed class priorities, we apply the proposed method to adjust classiﬁcation
+performance across classes, in which threshold ζ for controlling the complexity of the adjusted preference model is
+determined using cross-validation by checking CardPfr on the two classes with the greatest priorities. Speciﬁcally,
+if we observed no improvement of CardPfr on the two classes with the greatest priorities at a certain iteration on
+the validation set, we terminate the adjustment process. Note that one can choose diﬀerent measures for using
+cross-validation to set threshold ζ. Finally, we obtain the adjusted classiﬁcation performance across classes (see
+columns “Final” in Table 5). The variation of CardPfr and OrdPfr for each class during the whole process is
+depicted in Figure 13.
+We observe the measures CardPfr and OrdPfr for each class on the reference alternatives are adjusted ac-
+cording to the speciﬁed priority ranking. Particularly, CardPfr and OrdPfr for Cl4 and Cl5 decrease during
+the whole process as they have the greatest two priorities, whereas CardPfr and OrdPfr for Cl1, Cl2 and Cl3
+28
+
+===== PAGE 29 =====
+0
+20
+40
+60
+80
+100
+Evaluation scale
+0.00
+0.05
+0.10
+0.15
+0.20
+0.25
+0.30
+Marginal value
+(a) Linear marginal value function
+0
+20
+40
+60
+80
+100
+Evaluation scale
+0.00
+0.05
+0.10
+0.15
+0.20
+0.25
+Marginal value
+(b) Piecewise-linear marginal value function
+0
+20
+40
+60
+80
+100
+Evaluation scale
+0.00
+0.05
+0.10
+0.15
+0.20
+0.25
+Marginal value
+(c) Splined marginal value function
+0
+20
+40
+60
+80
+100
+Evaluation scale
+0.00
+0.05
+0.10
+0.15
+0.20
+0.25
+Marginal value
+(d) General monotone marginal value function
+Figure 12: An example of non-linear actual marginal value functions and marginal value functions derived from four variants of
+proposed framework. The dashed and solid lines refer to actual marginal value functions and marginal value functions derived from
+four variants of proposed framework, respectively. The marginal value functions on each criteria are represented using diﬀerent colors:
+red – g1, blue – g2, yellow – g3, green – g4, purple – g5, gray – g6. (For interpretation of the references to color in this ﬁgure, the
+reader is referred to the web version of this article.)
+29
+
+===== PAGE 30 =====
+increase because they have relatively low priorities. This indicates that the classiﬁcation performance on Cl1,
+Cl2 and Cl3 is sacriﬁced to improve that on Cl4 and Cl5. When it comes to the performance for each class on the
+non-reference alternatives, the measure CardPfr for each class varies as it does on the reference alternatives, while
+the measure OrdPfr deteriorates slightly for each class. It suggests that the predictive ability of the constructed
+model for each class is adjusted in terms of the measure CardPfr, but the performance in terms of the measure
+OrdPfr does not achieve the desired eﬀect.
+Table 5: Initial and ﬁnal CardPfr and OrdPfr for each class in an example of adjusting classiﬁcation performance across classes
+according to class priorities.
+Class
+CardPfr
+OrdPfr
+Initial
+Final
+Initial
+Final
+Reference alternatives
+Cl1
+0.2827
+0.4005
+0.2942
+0.3407
+Cl2
+0.2797
+0.3314
+0.1521
+0.1651
+Cl3
+0.2763
+0.3941
+0.1035
+0.1271
+Cl4
+0.2555
+0.1038
+0.2435
+0.1964
+Cl5
+0.1092
+0.0523
+0.2185
+0.2021
+Non-reference alternatives
+Cl1
+0.0349
+0.0654
+0.4083
+0.4533
+Cl2
+0.0366
+0.0475
+0.2066
+0.2866
+Cl3
+0.1468
+0.2197
+0.1283
+0.2100
+Cl4
+0.1654
+0.0928
+0.3651
+0.4283
+Cl5
+0.1142
+0.0481
+0.3783
+0.3983
+0
+2
+4
+6
+8
+10
+12
+14
+16
+Iteration
+0.05
+0.10
+0.15
+0.20
+0.25
+0.30
+0.35
+0.40
+CardPfr on reference alternatives
+Cl1
+Cl2
+Cl3
+Cl4
+Cl5
+(a) CardPfr on reference alternatives
+0
+2
+4
+6
+8
+10
+12
+14
+16
+Iteration
+0.10
+0.15
+0.20
+0.25
+0.30
+0.35
+OrdPfr on reference alternatives
+Cl1
+Cl2
+Cl3
+Cl4
+Cl5
+(b) OrdPfr on reference alternatives
+0
+2
+4
+6
+8
+10
+12
+14
+16
+Iteration
+0.050
+0.075
+0.100
+0.125
+0.150
+0.175
+0.200
+0.225
+CardPfr on non-reference alternatives
+Cl1
+Cl2
+Cl3
+Cl4
+Cl5
+(c) CardPfr on non-reference alternatives
+0
+2
+4
+6
+8
+10
+12
+14
+16
+Iteration
+0.15
+0.20
+0.25
+0.30
+0.35
+0.40
+0.45
+OrdPfr on non-reference alternatives
+Cl1
+Cl2
+Cl3
+Cl4
+Cl5
+(d) OrdPfr on non-reference alternatives
+Figure 13: Variation of CardPfr and OrdPfr for each class in an example of adjusting classiﬁcation performance across classes
+according to class priorities.
+In the above example, we observe that the predictive ability of the constructed model for each class cannot
+necessarily be adjusted according to the speciﬁed class priorities. To test the validity of the proposed method
+for adjusting classiﬁcation performance across classes, we conduct a further simulation experiment to examine
+whether the measures CardPfr and OrdPfr for each class on non-reference alternatives can be adjusted according
+to the speciﬁed class priorities. In this simulation experiment, we simulate 100 general monotone value functions
+30
+
+===== PAGE 31 =====
+Table 6: ANOVA results for the percentage of problem instances in which CardPfr
+and OrdPfr for classes with the greatest N priorities on non-reference alternatives
+improve, respectively.
+Outcome
+Indicator
+ρ
+Credibility distribution
+Sorting method
+∆CardPfr@1
+df
+4
+4
+3
+Mean squares
+0.002
+0.003
+0.564
+F
+0.541
+0.943
+169.804
+Sig.
+0.706
+0.443
+0.000*
+∆CardPfr@2
+df
+4
+4
+3
+Mean squares
+0.002
+0.003
+0.559
+F
+0.246
+0.464
+80.606
+Sig.
+0.911
+0.762
+0.000*
+∆CardPfr@3
+df
+4
+4
+3
+Mean squares
+0.009
+0.019
+0.675
+F
+0.783
+1.579
+57.545
+Sig.
+0.541
+0.187
+0.000*
+∆OrdPfr@1
+df
+4
+4
+3
+Mean squares
+0.003
+0.004
+0.486
+F
+0.523
+0.741
+101.439
+Sig.
+0.719
+0.567
+0.000*
+∆OrdPfr@2
+df
+4
+4
+3
+Mean squares
+0.001
+0.004
+0.462
+F
+0.096
+0.564
+59.471
+Sig.
+0.984
+0.689
+0.000*
+∆OrdPfr@3
+df
+4
+4
+3
+Mean squares
+0.011
+0.018
+0.549
+F
+0.867
+1.471
+44.488
+Sig.
+0.487
+0.218
+0.000*
+1 ∆CardPfr@N and ∆OrdPfr@N for N = 1, 2, 3 refer to the percentage of problem
+instances in which CardPfr and OrdPfr for the classes with the greatest N priorities
+on the non-reference alternatives improve, respectively.
+for each complexity level (ρ=0%, 25%, 50%, 75%, 100%) as the actual preference models to generate valued
+decision examples with diﬀerent distribution of credibility degrees (100%-0%, 90%-10%, 80%-20%, 70%-30%,
+60%-40%). We use the four variants of the proposed framework to construct the initial value functions and
+then use the method for adjusting classiﬁcation performance across classes. Particularly, we consider all possible
+rankings of class priorities (since we consider ﬁve classes in this problem, there are 120 possible rankings).
+Moreover, the stopping criterion of the adjustment procedure is either that there is no improvement of CardPfr
+on the two classes with the greatest priorities at a certain iteration on the validation set, or that the maximum
+iteration (100) is reached. Finally, we count the percentage of problem instances in which the measures CardPfr
+and OrdPfr for the classes with the greatest priorities on non-reference alternatives improve, which can be seen
+as the possibility the proposed method for adjusting classiﬁcation performance achieves the desired eﬀect. In
+e-Appendix C, we report the percentage of problem instances in which CardPfr and OrdPfr for classes with
+the greatest N priorities on non-reference alternatives improve, respectively, in each problem setting, where
+N = 1, 2, 3. Since we have 120 combinations of problem setting regarding three factors (F1: ρ, F2: distribution of
+credibility degrees, and F3: sorting method), we ﬁrst use a three-way analysis of variance (ANOVA) to analyze
+the obtained results, in which we do not consider the interactions between factors. The ANOVA results for
+the percentage of problem instances in which CardPfr and OrdPfr for classes with the greatest N priorities on
+non-reference alternatives improve, respectively, are presented in Table 6. It is apparent that, among the three
+considered factors regarding a sorting task, only the factor of sorting method (i.e., the underlying value function
+model) aﬀects whether the measures CardPfr and OrdPfr for each class on non-reference alternatives can be
+adjusted according to the speciﬁed class priorities.
+Then, we analyze the results of applying the proposed method to adjust the initial outcomes derived by diﬀer-
+ent variants of the proposed framework, which is summarized in Table 7. On the one hand, we observe that both
+∆CardPfr@N and ∆OrdPfr@N decrease as N increases, which indicates that the chance that the performance
+31
+
+===== PAGE 32 =====
+Table 7: Percentage of problem instances in which CardPfr and OrdPfr for classes with the greatest N priorities on non-reference
+alternatives improve, respectively, in terms of mean and standard deviation.
+Method
+∆CardPfr@1
+∆CardPfr@2
+∆CardPfr@3
+∆OrdPfr@1
+∆OrdPfr@2
+∆OrdPfr@3
+Linear variant
+0.6043±0.0605
+0.4951±0.0896
+0.3744±0.1227
+0.5293±0.0691
+0.4212±0.0885
+0.3008±0.1242
+Piecewise-linear variant
+0.9040±0.0598
+0.8124±0.0916
+0.7288±0.1179
+0.7988±0.0676
+0.7117±0.0885
+0.6200±0.1199
+Splined variant
+0.9080±0.0489
+0.7856±0.0611
+0.6856±0.0862
+0.8163±0.0643
+0.6816±0.0782
+0.5771±0.0892
+General monotone variant
+0.9024±0.0534
+0.7807±0.0709
+0.6873±0.0966
+0.8083±0.0661
+0.6819±0.0801
+0.5876±0.1015
+1 ∆CardPfr@N and ∆OrdPfr@N for N = 1, 2, 3 refer to the percentage of problem instances in which CardPfr and OrdPfr for the
+classes with the greatest N priorities on the non-reference alternatives improve, respectively.
+on a class is improved decreases with its priority. Particularly, ∆CardPfr@N is greater than ∆OrdPfr@N for
+the same N, which means that the measure CardPfr has a higher possibility to be improved than the measure
+OrdPfr. On the other hand, it is noted that the proposed method has a greater possibility to adjust the initial
+outcomes derived by the piecewise-linear, splined, and general monotone variants of the proposed framework than
+to adjust the results achieved by the linear counterpart. This is because the piecewise-linear, splined, and general
+monotone value functions are more ﬂexible while the linear value function is restricted to the linear form.
+4. Conclusions
+In this paper, we proposed a new preference learning framework for constructing an additive value function
+model from the given decision examples. We put the linear, piecewise-linear, splined, and general monotone
+value functions under a uniﬁed analytical framework, in which the DM can select any type to equip diﬀerent
+variants of the analytical framework. In comparison with the existing sorting methods, our analytical framework
+allows to consider valued decision examples and each reference alternative could be assigned to multiple classes
+with respective credibility degrees. We formulated the learning problem within the regularization framework in
+order to improve the predictive ability of the constructed preference model on new instances. Speciﬁcally, we
+deﬁned the complexity for each type of value function model and use regularization terms avoid the over-ﬁtting
+problem. Moreover, we introduced the advanced alternating direction method of multipliers to solve the proposed
+optimization model in a computationally eﬃcient way. In addition, considering the potential lack of equivalence
+in class priorities, we proposed a method to adjust classiﬁcation performance across classes according to the
+priority ranking of classes speciﬁed by the DM.
+The experimental study of applying the analytical framework to a real-world dataset revealed that the vari-
+ants using diﬀerent value functions had a competitive advantage over the existing sorting methods in terms of
+a predictive performance, but each of them had respective characteristics in interpreting human preferences.
+Speciﬁcally, the value function model constructed by the linear variant is easy to explain to a non-experienced
+DM, but has a relatively weak ability in learning complex non-linear preferences. As for the piecewise-linear
+variant, the derived piecewise-linear marginal value functions can ﬁt complex preferences well, but may exhibit
+a sudden change in slope at breakpoints, which limits their interpretability in some contexts. When it comes
+to the splined variant, it achieves the same high classiﬁcation performance as the piecewise-linear variant, but
+has the advantage of constructing smooth marginal value functions, which is more appreciated in some applica-
+tions. Finally, the general monotone variant uses the most ﬂexible value function model that can characterize
+any general monotone preferences over alternatives.
+We also investigated the variation of classiﬁcation performance for diﬀerent credibility distribution of valued
+decision examples generated by simulated value functions with diﬀerent degrees of complexity. Moreover, we
+tested the possibility of using the proposed method for adjusting classiﬁcation performance to achieve desired
+outcomes. Overall, the analytical framework is capable of dealing with complex decision problems and reveals
+ﬂexibility to fulﬁl personalized requirement from the DM.
+Our work contributes to the research at the crossroads of Multiple Criteria Decision Aiding and Machine
+Learning. On the one hand, we introduced the methodological and computational advances from the machine
+32
+
+===== PAGE 33 =====
+learning community as eﬃcient tools to address several new characteristics that have never been considered in
+previous studies in the ﬁeld of MCDA, including constructing various types of value function models under the
+uniﬁed framework, assigning alternatives to multiple classes with respective credibility degrees, and prioritizing
+importance of classes in order to adjust classiﬁcation performance. On the other hand, these new characteris-
+tics also provide several possible avenues to the Machine Learning community, such as utilizing the descriptive
+character of value function models for interpreting the outcomes suggested by a learning procedure, consid-
+ering consistency-driven procedure for ordinal classiﬁcation tasks instead of using the traditional probabilistic
+framework, and allowing the DM to participate in the construction process to obtain customized results.
+We envisage the following directions for future research. The analytical framework can be extended to consider
+interacting and non-monotonic preferences. Moreover, it will be interesting to apply the analytical framework to
+multiple criteria ranking or multi-label ranking. We will also incorporate more types of value function models
+and other preference models into the analytical framework. Finally, more real-world applications are needed to
+validate the practical performance of the four variants of the analytical framework.
+References
+References
+[1] Almeida-Dias, J., Figueira, J. R., and Roy, B. (2010). Electre Tri-C: A multiple criteria sorting method based
+on characteristic reference actions. European Journal of Operational Research, 204(3):565–580.
+[2] Boyd, S., Parikh, N., Chu, E., Peleato, B., Eckstein, J., et al. (2011). Distributed optimization and statistical
+learning via the alternating direction method of multipliers. Foundations and Trends in Machine Learning,
+3(1):1–122.
+[3] Cailloux, O., Dias, L., Mayag, B., and Mousseau, V. (2012). Indirect elicitation of MCDA sorting models
+using valued assignment examples. Ecole Centrale Paris.
+[4] Corrente, S., Greco, S., Kadzi´nski, M., and S lowi´nski, R. (2013). Robust ordinal regression in preference
+learning and ranking. Machine Learning, 93(2-3):381–422.
+[5] Corrente, S., Greco, S., and S lowi´nski, R. (2016). Multiple Criteria Hierarchy Process for ELECTRE Tri
+methods. European Journal of Operational Research, 252(1):191 – 203.
+[6] Dembczy´nski, K., Kot lowski, W., and S lowi´nski, R. (2006). Additive preference model with piecewise linear
+components resulting from dominance-based rough set approximations. In Rutkowski, L., Tadeusiewicz, R.,
+Zadeh, L., and ˙Zurada, J., editors, International Conference on Artiﬁcial Intelligence and Soft Computing –
+ICAISC 2006, pages 499–508. Springer, Berlin.
+[7] Dias, L., Mousseau, V., Figueira, J., and Clımaco, J. (2002). An aggregation/disaggregation approach to
+obtain robust conclusions with ELECTRE TRI. European Journal of Operational Research, 138(2):332–348.
+[8] Dias, L. and Vetschera, R. (2019). On generating utility functions in Stochastic Multicriteria Acceptability
+Analysis. European Journal of Operational Research, 278(2):672–685.
+[9] Donoho, D. L. (1995). De-noising by soft-thresholding. IEEE Transactions on Information Theory, 41(3):613–
+627.
+[10] Doumpos, M. and Zopounidis, C. (2002). Multicriteria decision aid classiﬁcation methods. Springer US.
+33
+
+===== PAGE 34 =====
+[11] Doumpos, M. and Zopounidis, C. (2007). Regularized estimation for preference disaggregation in multiple
+criteria decision making. Computational Optimization and Applications, 38(1):61–80.
+[12] Ghaderi, M., Ruiz, F., and Agell, N. (2017). A linear programming approach for learning non-monotonic addi-
+tive value functions in multiple criteria decision aiding. European Journal of Operational Research, 259(3):1073–
+1084.
+[13] Goodfellow, I. and Bengio, Y. and Courville, A. (2016). Deep learning. MIT press.
+[14] Greco, S., Matarazzo, B., and S lowi´nski, R. (2001). Rough sets theory for multicriteria decision analysis.
+European Journal of Operational Research, 129(1):1 – 47.
+[15] Greco, S., Mousseau, V., and S lowi´nski, R. (2010). Multiple criteria sorting with a set of additive value
+functions. European Journal of Operational Research, 207(3):1455–1470.
+[16] Hastie, T., Tibshirani, R., and Friedman, J. (2009). The elements of statistical learning: data mining,
+inference, and prediction, Springer Series in Statistics.
+[17] Kadzi´nski, M., Ciomek, K., and S lowi´nski, R. (2015). Modeling assignment-based pairwise comparisons
+within integrated framework for value-driven multiple criteria sorting. European Journal of Operational Re-
+search, 241(3):830–841.
+[18] Kadzi´nski,
+M.,
+Ghaderi,
+M.,
+and Dabrowski,
+M. (2019).
+Contingent preference disaggregation
+model for multiple criteria sorting problem.
+European Journal of Operational Research, (in press).
+https://doi.org/10.1016/j.ejor.2019.08.043.
+[19] Kadzi´nski, M., Ghaderi, M., Wasikowski, J., and Agell, N. (2017). Expressiveness and robustness measures
+for the evaluation of an additive value function in multiple criteria preference disaggregation methods: An
+experimental analysis. Computers & Operations Research, 87:146–164.
+[20] Kadzi´nski, M., S lowi´nski, R., and Greco, S. (2016). Robustness analysis for decision under uncertainty with
+rule-based preference model. Information Sciences, 328:321–339.
+[21] Kadzi´nski, M. and Tervonen, T. (2013). Robust multi-criteria ranking with additive value models and holistic
+pair-wise preference statements. European Journal of Operational Research, 228(1):169–180.
+[22] Keeney, R. L. and Raiﬀa, H. (1976). Decisions with multiple objectives: preferences and value trade-oﬀs.
+Cambridge University Press.
+[23] Liu, J., Liao, X., Kadzi´nski, M., and S lowi´nski, R. (2019). Preference disaggregation within the regulariza-
+tion framework for sorting problems with multiple potentially non-monotonic criteria. European Journal of
+Operational Research, 276(3):1071–1089.
+[24] Miner, D. and Shook, A. (2012). MapReduce Design Patterns: Building Eﬀective Algorithms and Analytics
+for Hadoop and Other Systems. O’Reilly Media, Inc.
+[25] Murphy, K. P. (2012). Machine Learning: A Probabilistic Perspective. MIT Press.
+[26] Nocedal, J. and Wright, S. J. (2004). Numerical optimization. Springer.
+[27] Pelissari, R., Oliveira, M., Amor, S. B., and Abackerli, A. (2019). A new ﬂowsort-based method to deal with
+information imperfections in sorting decision-making problems. European Journal of Operational Research,
+276(1):235 – 246.
+34
+
+===== PAGE 35 =====
+[28] Rezaei, J. (2018). Piecewise linear value functions for multi-criteria decision-making. Expert Systems with
+Applications, 98:43 – 56.
+[29] Sobrie, O., Gillis, N., Mousseau, V., and Pirlot, M. (2018). UTA-poly and UTA-splines: additive value
+functions with polynomial marginals. European Journal of Operational Research, 264(2):405–418.
+[30] Spliet, R. and Tervonen, T. (2014). Preference inference with general additive value models and holistic
+pair-wise statements. European Journal of Operational Research, 232(3):607–612.
+[31] Tervonen, T., Figueira, J., Lahdelma, R., Dias, J. A., and Salminen, P. (2009). A stochastic method for
+robustness analysis in sorting problems. European Journal of Operational Research, 192(1):236 – 242.
+[32] Train, K. E. (2009). Discrete choice methods with simulation. Cambridge University Press.
+[33] Vapnik, V. (1998). Statistical learning theory. Wiley, New York.
+35

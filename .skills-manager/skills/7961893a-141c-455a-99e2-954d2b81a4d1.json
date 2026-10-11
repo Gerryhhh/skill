@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "7961893a-141c-455a-99e2-954d2b81a4d1",
+  "path": "chuangye-jinrong-kecheng-ppt",
+  "path_key": "chuangye-jinrong-kecheng-ppt",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "local",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}
