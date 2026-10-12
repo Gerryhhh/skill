@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "skill_id": "f008a2ef-f104-4f86-9c80-e47045815697",
+  "path": "huashu-nuwa",
+  "path_key": "huashu-nuwa",
+  "enabled": true,
+  "tags": [
+    "蒸馏"
+  ],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/alchaincyf/nuwa-skill",
+    "subpath": null,
+    "branch": null
+  }
+}

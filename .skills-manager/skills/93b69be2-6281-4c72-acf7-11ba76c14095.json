@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "skill_id": "93b69be2-6281-4c72-acf7-11ba76c14095",
+  "path": "figure-designer",
+  "path_key": "figure-designer",
+  "enabled": true,
+  "tags": [
+    "港大科研外挂"
+  ],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/HKUSTDial/Supervisor-Skills",
+    "subpath": "skills/figure-designer",
+    "branch": null
+  }
+}

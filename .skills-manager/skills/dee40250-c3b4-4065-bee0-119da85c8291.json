@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "skill_id": "dee40250-c3b4-4065-bee0-119da85c8291",
+  "path": "pre-submission-reviewer",
+  "path_key": "pre-submission-reviewer",
+  "enabled": true,
+  "tags": [
+    "港大科研外挂"
+  ],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/HKUSTDial/Supervisor-Skills",
+    "subpath": "skills/pre-submission-reviewer",
+    "branch": null
+  }
+}

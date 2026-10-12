@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "skill_id": "fb0a7c94-4201-4ffa-b00b-7d243c1aacfe",
+  "path": "benchmark-paper-template",
+  "path_key": "benchmark-paper-template",
+  "enabled": true,
+  "tags": [
+    "港大科研外挂"
+  ],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/HKUSTDial/Supervisor-Skills",
+    "subpath": "skills/benchmark-paper-template",
+    "branch": null
+  }
+}

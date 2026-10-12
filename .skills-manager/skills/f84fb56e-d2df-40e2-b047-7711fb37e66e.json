@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "skill_id": "f84fb56e-d2df-40e2-b047-7711fb37e66e",
+  "path": "deep-research",
+  "path_key": "deep-research",
+  "enabled": true,
+  "tags": [
+    "港大科研外挂"
+  ],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/HKUSTDial/Supervisor-Skills",
+    "subpath": "skills/deep-research",
+    "branch": null
+  }
+}

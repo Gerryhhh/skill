@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "skill_id": "785f996b-0f2d-4ba6-9fe1-d4078bc23db1",
+  "path": "paper-writer",
+  "path_key": "paper-writer",
+  "enabled": true,
+  "tags": [
+    "港大科研外挂"
+  ],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/HKUSTDial/Supervisor-Skills",
+    "subpath": "skills/paper-writer",
+    "branch": null
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "skill_id": "7478c0b2-e78c-47b6-9098-97d9b2b43917",
+  "path": "cangjie-skill",
+  "path_key": "cangjie-skill",
+  "enabled": true,
+  "tags": [
+    "蒸馏"
+  ],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/kangarooking/cangjie-skill",
+    "subpath": null,
+    "branch": null
+  }
+}

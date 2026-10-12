@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "skill_id": "09ee97ae-e9d1-4917-8fda-4ac6e74f86ab",
+  "path": "idea-evaluator",
+  "path_key": "idea-evaluator",
+  "enabled": true,
+  "tags": [
+    "港大科研外挂"
+  ],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/HKUSTDial/Supervisor-Skills",
+    "subpath": "skills/idea-evaluator",
+    "branch": null
+  }
+}

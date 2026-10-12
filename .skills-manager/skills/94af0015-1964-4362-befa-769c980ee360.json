@@ -4,7 +4,9 @@
   "path": "bank-statement-cashflow",
   "path_key": "bank-statement-cashflow",
   "enabled": true,
-  "tags": [],
+  "tags": [
+    "房东利润计算"
+  ],
   "source": {
     "type": "local",
     "ref": null,

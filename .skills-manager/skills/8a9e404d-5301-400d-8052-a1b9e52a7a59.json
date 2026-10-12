@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "skill_id": "8a9e404d-5301-400d-8052-a1b9e52a7a59",
+  "path": "drawio-reconstruction",
+  "path_key": "drawio-reconstruction",
+  "enabled": true,
+  "tags": [
+    "港大科研外挂"
+  ],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/HKUSTDial/Supervisor-Skills",
+    "subpath": "skills/drawio-reconstruction",
+    "branch": null
+  }
+}

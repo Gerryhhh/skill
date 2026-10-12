@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "skill_id": "226c6b13-f2a3-4af3-a1f5-6250796ab083",
+  "path": "vibe-research-workflow",
+  "path_key": "vibe-research-workflow",
+  "enabled": true,
+  "tags": [
+    "港大科研外挂"
+  ],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/HKUSTDial/Supervisor-Skills",
+    "subpath": "skills/vibe-research-workflow",
+    "branch": null
+  }
+}

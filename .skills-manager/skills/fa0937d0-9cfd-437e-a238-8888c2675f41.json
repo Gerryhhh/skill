@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "skill_id": "fa0937d0-9cfd-437e-a238-8888c2675f41",
+  "path": "darwin-skill",
+  "path_key": "darwin-skill",
+  "enabled": true,
+  "tags": [
+    "蒸馏"
+  ],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/alchaincyf/darwin-skill",
+    "subpath": null,
+    "branch": null
+  }
+}

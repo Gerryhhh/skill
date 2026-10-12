@@ -4,7 +4,9 @@
   "path": "hypit",
   "path_key": "hypit",
   "enabled": true,
-  "tags": [],
+  "tags": [
+    "复刻视频"
+  ],
   "source": {
     "type": "git",
     "ref": "https://github.com/hypit-ai/hypit",
