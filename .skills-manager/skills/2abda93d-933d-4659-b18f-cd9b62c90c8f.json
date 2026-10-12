@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "2abda93d-933d-4659-b18f-cd9b62c90c8f",
+  "path": "hypit",
+  "path_key": "hypit",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/hypit-ai/hypit",
+    "subpath": "skills/hypit",
+    "branch": null
+  }
+}
