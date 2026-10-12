@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "98879153-efc8-432f-b040-9742b2b4267e",
+  "path": "ponytail-audit",
+  "path_key": "ponytail-audit",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/DietrichGebert/ponytail",
+    "subpath": "skills/ponytail-audit",
+    "branch": null
+  }
+}

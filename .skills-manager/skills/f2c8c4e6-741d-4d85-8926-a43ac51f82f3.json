@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "f2c8c4e6-741d-4d85-8926-a43ac51f82f3",
+  "path": "ponytail-review",
+  "path_key": "ponytail-review",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/DietrichGebert/ponytail",
+    "subpath": "skills/ponytail-review",
+    "branch": null
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "2f4e0987-124b-4cae-be62-9fffd74847e7",
+  "path": "ponytail-debt",
+  "path_key": "ponytail-debt",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/DietrichGebert/ponytail",
+    "subpath": "skills/ponytail-debt",
+    "branch": null
+  }
+}
