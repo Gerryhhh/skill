@@ -4,7 +4,9 @@
   "path": "ponytail-review",
   "path_key": "ponytail-review",
   "enabled": true,
-  "tags": [],
+  "tags": [
+    "减少写代码时间"
+  ],
   "source": {
     "type": "git",
     "ref": "https://github.com/DietrichGebert/ponytail",
