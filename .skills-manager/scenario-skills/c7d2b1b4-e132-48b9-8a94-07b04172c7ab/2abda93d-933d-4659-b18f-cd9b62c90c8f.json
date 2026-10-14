@@ -6,6 +6,7 @@
   "tools": {
     "claude_code": true,
     "codex": true,
+    "github_copilot": true,
     "mimo": true,
     "qoder": true,
     "workbuddy": true

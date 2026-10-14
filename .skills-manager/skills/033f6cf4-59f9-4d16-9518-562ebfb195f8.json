@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "033f6cf4-59f9-4d16-9518-562ebfb195f8",
+  "path": "remove-ai-marks",
+  "path_key": "remove-ai-marks",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/guillaumemeyer/watermarks-remover",
+    "subpath": "skills/remove-ai-marks",
+    "branch": null
+  }
+}
