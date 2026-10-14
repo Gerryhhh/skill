@@ -4,7 +4,9 @@
   "path": "clean-user-facing-text",
   "path_key": "clean-user-facing-text",
   "enabled": true,
-  "tags": [],
+  "tags": [
+    "去AI水印"
+  ],
   "source": {
     "type": "git",
     "ref": "https://github.com/guillaumemeyer/watermarks-remover",
