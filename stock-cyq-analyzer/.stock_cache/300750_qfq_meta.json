@@ -1,0 +1,10 @@
+{
+  "symbol": "300750",
+  "adjust": "qfq",
+  "cached_at": "2026-10-17T18:46:00.367980",
+  "latest_date": "2026-10-16 00:00:00",
+  "earliest_date": "2021-10-18 00:00:00",
+  "rows": 1212,
+  "cache_file": "/Users/gerry/.skills-manager/skills/stock-cyq-analyzer/.stock_cache/300750_qfq.pkl",
+  "version": "3.0"
+}
