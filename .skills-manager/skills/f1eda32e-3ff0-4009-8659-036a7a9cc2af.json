@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "skill_id": "f1eda32e-3ff0-4009-8659-036a7a9cc2af",
+  "path": "ifind-repilot-finance-data-search",
+  "path_key": "ifind-repilot-finance-data-search",
+  "enabled": true,
+  "tags": [
+    "tradingagents"
+  ],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/hsliuping/TradingAgents-CN",
+    "subpath": "skills/ifind-repilot-finance-data-search",
+    "branch": null
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "skill_id": "b4d65231-ca1a-40d2-94f0-e6e8f3666d92",
+  "path": "stock-cyq-analyzer",
+  "path_key": "stock-cyq-analyzer",
+  "enabled": true,
+  "tags": [
+    "tradingagents"
+  ],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/hsliuping/TradingAgents-CN",
+    "subpath": "skills/skill_import_zljkaqmx",
+    "branch": null
+  }
+}

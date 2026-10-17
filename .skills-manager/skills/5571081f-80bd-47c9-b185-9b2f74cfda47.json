@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "skill_id": "5571081f-80bd-47c9-b185-9b2f74cfda47",
+  "path": "a-share-runtime-data-access",
+  "path_key": "a-share-runtime-data-access",
+  "enabled": true,
+  "tags": [
+    "tradingagents"
+  ],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/hsliuping/TradingAgents-CN",
+    "subpath": "skills/a-share-runtime-data-access",
+    "branch": null
+  }
+}

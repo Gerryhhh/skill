@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "skill_id": "77fc3b78-e144-419e-86e7-15666db55ffe",
+  "path": "ifind-repilot-news-search",
+  "path_key": "ifind-repilot-news-search",
+  "enabled": true,
+  "tags": [
+    "tradingagents"
+  ],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/hsliuping/TradingAgents-CN",
+    "subpath": "skills/ifind-repilot-news-search",
+    "branch": null
+  }
+}
