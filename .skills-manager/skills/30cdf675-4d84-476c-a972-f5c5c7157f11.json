@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "30cdf675-4d84-476c-a972-f5c5c7157f11",
+  "path": "officecli",
+  "path_key": "officecli",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "git",
+    "ref": "https://github.com/iOfficeAI/OfficeCLI",
+    "subpath": null,
+    "branch": null
+  }
+}
