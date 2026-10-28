@@ -14,6 +14,7 @@
     "qoder": true,
     "workbuddy": true,
     "workbuddy_ai": true,
-    "workbuddy_overseas": true
+    "workbuddy_overseas": true,
+    "zcode": true
   }
 }
