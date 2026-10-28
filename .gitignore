@@ -8,4 +8,6 @@ __pycache__/
 # skills-manager: oversized skills excluded from backup (auto-managed)
 /global-economics-business/
 /.skills-manager/skills/4d2c9a5b-117c-45f2-9062-15e3da8ee7e8.json
+/operations-management/
+/.skills-manager/skills/e4cfcdc8-9175-4358-9d1d-497ac084ce5d.json
 # skills-manager: end oversized skills
